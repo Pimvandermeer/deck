@@ -1,7 +1,7 @@
 import type { AskEvent } from "../../../main/agentTurn.js";
 import { Markdown } from "../board/Markdown.js";
 
-// One conversation with a deck assistant, as the agent page, the dock and the
+// One conversation with a deck assistant, as the agent panel and the
 // PR review panel all render it, plus the helpers that keep it in localStorage.
 
 export interface ChatTurn {

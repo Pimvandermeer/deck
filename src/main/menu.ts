@@ -44,7 +44,7 @@ export function installAppMenu(): void {
       submenu: [
         command("Terminal", "view.terminal", keybinds),
         command("Board", "view.board", keybinds),
-        command("Agent", "view.agent", keybinds),
+        command("Agent panel", "view.agent", keybinds),
         command("Reviews", "view.reviews", keybinds),
         command("Activity", "view.activity", keybinds),
         { type: "separator" },

@@ -53,7 +53,7 @@ Summon it with **⌥ Space**. Code, review and orchestrate without leaving the s
 
 Your board as a Kanban view inside Deck, mirroring Jira, Linear or a GitHub Project. Cards carry the agents that have touched them; opening a card shows the issue, its sessions and its pull requests, and starts a new Claude Code or Codex session on it. Dragging a card to another column fires the matching transition in the tracker, optimistically, with the sync catching up in the background.
 
-### Agent page <kbd>⌘⌥3</kbd>
+### Agent panel <kbd>⌘⌥3</kbd>
 
 Deck's orchestrator, front and centre. Every question gets the live sessions, your PR inbox and the synced board as context. Through Deck's own MCP tools it can:
 
@@ -61,7 +61,7 @@ Deck's orchestrator, front and centre. Every question gets the live sessions, yo
 - put an agent on a broken PR
 - search the tracker's backlog and create issues, only after you agree
 
-The rail lists what needs you and every live session. The sidebar badge counts it. Make it the start page from its header or **Settings → General**.
+It lives in the **Agent** button in the bottom-right corner of every page, so the conversation follows you between pages. Expand it into a full-height panel for longer answers; <kbd>⌘⌥3</kbd> opens and closes it. What needs you and every live session are already in the sidebar and on the Activity page, so the panel is only the conversation.
 
 ### Reviews page <kbd>⌘⌥4</kbd>
 
@@ -69,11 +69,13 @@ Every pull request waiting on your review, one at a time like a mail client. Eac
 
 The queue is fed either by GitHub's review requests or by a column of your board — every card sitting in it puts its open PRs in front of you, whether or not GitHub asked. Pick which in **Settings → General → Board**.
 
-The rail marks each PR with whose move it is (the reviewers, until a review has seen the head commit; then the author), its open threads, and a dot when something happened since you last looked at it.
+The rail marks each PR with whose move it is (the reviewers, until a review has seen the head commit; then the author), in the same pill the Activity page uses, its open threads, and a dot when something happened since you last looked at it.
+
+This is the one place a pull request opens: picking a PR on the board's ticket panel, on the Activity page or in a stack link brings it up here, with **Back** (or the mouse back button) returning you to where you were.
 
 ### Activity page <kbd>⌘⌥5</kbd>
 
-Every card on your board with its pull requests: status, last commit, last review, whose move it is, open threads and CI. Three numbers on top say where the ball lies: **waiting on you** (a review asked of you, a re-review after new commits, your PR to address, merge or fix, an agent with a question), **you're waiting on** (per person, so you know whom to chase) and **between others**. Click one to see only those; the list is grouped the same way, longest waiting first, each row saying for how long. Every row that waits on you has a **Continue** button that picks it up where it was left: it opens the terminal of the agent already on that PR (for a review, the session that was reviewing it; for work on the PR, the one with its branch checked out), answers the agent if it is the one waiting, resumes the last week's session that worked on the PR if its tab is closed, and otherwise starts a new agent in your checkout with the task written out. Switch **group by** to *what's new* for the news view: rows with news since you last opened them come first, with what happened ("new commits by …", "approved by …", "CI failing", "merged", a status move), and the sidebar badge counts them. It also flags where the tracker and GitHub disagree: a merged PR on a ticket that has not moved, a review column holding only drafts or no PR at all, a ticket marked reviewed while changes are still requested. New commits are told apart by commit id, so a rebase or force-push is caught even when the commit dates are old.
+The page for whose turn it is. Every card on your board with its pull requests: status, last commit, last review, whose move it is, open threads and CI. Three numbers on top say where the ball lies: **waiting on you** (a review asked of you, a re-review after new commits, your PR to address, merge or fix, an agent with a question, including agents that are not on any ticket), **you're waiting on** (per person, so you know whom to chase) and **between others**. Click one to see only those; the list is grouped the same way, longest waiting first, each row saying for how long. Every row that waits on you has a **Continue** button that picks it up where it was left: it opens the terminal of the agent already on that PR (for a review, the session that was reviewing it; for work on the PR, the one with its branch checked out), answers the agent if it is the one waiting, resumes the last week's session that worked on the PR if its tab is closed, and otherwise starts a new agent in your checkout with the task written out. Switch **group by** to *what's new* for the news view: rows with news since you last opened them come first, with what happened ("new commits by …", "approved by …", "CI failing", "merged", a status move); a dot on the sidebar's Activity button says there is news. The number on that button is the same **waiting on you** count, and the only badge in the sidebar. It also flags where the tracker and GitHub disagree: a merged PR on a ticket that has not moved, a review column holding only drafts or no PR at all, a ticket marked reviewed while changes are still requested. New commits are told apart by commit id, so a rebase or force-push is caught even when the commit dates are old.
 
 Agents running in your terminals show up next to the work they are on: an agent whose checkout sits on a PR's branch, that opened the PR, that worked on it (a PR link in your prompt, or `gh pr view`/`diff`/`review` on it), or that was started from the ticket gets a chip on the row, in the reviews rail and in the ticket panel; click it to jump to its terminal. The PR screen has a strip for that agent with **Open terminal** and **Message agent**, which types an instruction into its terminal (quick picks for open threads, failing checks, conflicts, a status check or "push it"). **Send to agent** on a review thread puts the comment in that composer for you to edit before it goes. While the agent is waiting on a question or permission prompt, sending is off, since the text would answer that prompt. With no agent on the PR, the same composer starts one in the local checkout.
 
@@ -132,7 +134,7 @@ Install and authenticate [`claude`](https://docs.anthropic.com/en/docs/claude-co
 | <kbd>⌘N</kbd> | New window |
 | <kbd>⌘1</kbd>–<kbd>⌘9</kbd> | Switch terminal |
 | <kbd>⌘B</kbd> | Toggle sidebar |
-| <kbd>⌘⌥1</kbd> <kbd>⌘⌥2</kbd> <kbd>⌘⌥3</kbd> <kbd>⌘⌥4</kbd> <kbd>⌘⌥5</kbd> | Terminal / Board / Agent / Reviews / Activity |
+| <kbd>⌘⌥1</kbd> <kbd>⌘⌥2</kbd> <kbd>⌘⌥3</kbd> <kbd>⌘⌥4</kbd> <kbd>⌘⌥5</kbd> | Terminal / Board / Agent panel / Reviews / Activity |
 | <kbd>⌘D</kbd> / <kbd>⌘⇧D</kbd> | Split right / down |
 | <kbd>⌘F</kbd> | Find in terminal |
 | <kbd>⌘J</kbd> | Toggle multiline input |

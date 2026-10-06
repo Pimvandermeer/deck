@@ -1,4 +1,6 @@
 import type { PrCheck } from "../../../main/github.js";
+import { ballFrom, ballText, type ActivityPr, type BallState, type Stance } from "../../../shared/activity.js";
+import { prKey } from "../../../shared/prs.js";
 
 const extColors: Record<string, string> = {
   ts: "text-blue",
@@ -122,3 +124,31 @@ export const relativeTime = (iso: string): string => {
 
 /** Wraps a shell argument in single quotes so code snippets survive `sh -c`. */
 export const shellQuote = (s: string): string => `'${s.replace(/'/g, `'\\''`)}'`;
+
+export interface Move { label: string; tone: string; strong?: boolean; hint: string }
+
+export const tones = {
+  blue: "bg-blue/10 text-blue",
+  orange: "bg-orange/10 text-orange",
+  green: "bg-green/10 text-green",
+  accent: "bg-accent/10 text-accent",
+  dim: "bg-card2 text-mut",
+};
+
+const stanceTone: Record<Stance, string> = { you: tones.orange, them: tones.blue, others: tones.dim, done: tones.accent };
+
+/** Whose move it is on one PR, from the user's side of it. */
+export function moveOf(pr: ActivityPr, viewer: string, requested: Set<string>): Move & { state: BallState } {
+  const state = ballFrom(pr, viewer, requested.has(prKey(pr)));
+  const since = `since ${relativeTime(state.since)}`;
+  if (pr.state === "MERGED") return { state, label: "Merged", tone: tones.accent, hint: pr.mergedAt ? `Merged ${relativeTime(pr.mergedAt)}` : "Merged" };
+  if (pr.state === "CLOSED") return { state, label: "Closed", tone: tones.dim, hint: "Closed without merging" };
+  const label = ballText(state);
+  const tone = state.stance === "you" && state.action === "merge" ? tones.green : stanceTone[state.stance];
+  return { state, label, tone, strong: state.stance === "you", hint: `${label} · ${since}` };
+}
+
+/** Whose move it is as a pill, the same on the activity page and the reviews rail. */
+export function MovePill({ move }: { move: Move }) {
+  return <span title={move.hint} className={`inline-flex h-[18px] max-w-full shrink-0 items-center truncate rounded-full px-2 text-[10px] ${move.tone} ${move.strong ? "font-bold" : ""}`}>{move.label}</span>;
+}

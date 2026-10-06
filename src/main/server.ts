@@ -30,7 +30,7 @@ function buildApp(): Hono {
     return c.json({ ok: Boolean(term && note) });
   });
 
-  // The agent page's assistant reaches deck's tools here (MCP over HTTP with
+  // The agent panel's assistant reaches deck's tools here (MCP over HTTP with
   // plain JSON responses). Loopback only, like everything else on this server.
   app.post("/api/mcp", async (c) => {
     const message = (await c.req.json().catch(() => null)) as JsonRpc | null;

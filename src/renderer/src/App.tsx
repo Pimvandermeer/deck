@@ -2,7 +2,6 @@ import { ExtensionProvider } from "./extensions/ExtensionProvider.js";
 import { DisplayModeProvider, FocusModeBar, useDisplayMode } from "./chrome/DisplayMode.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AgentDock } from "./agents/AgentDock.js";
-import { AgentPage } from "./agents/AgentPage.js";
 import { ChatProvider } from "./agents/ChatStore.js";
 import { BoardView } from "./board/BoardView.js";
 import { ReviewsView } from "./board/ReviewsView.js";
@@ -17,7 +16,7 @@ import { useTerminalAppearance } from "./lib/useTerminalAppearance.js";
 import { Onboarding } from "./chrome/Onboarding.js";
 import { Sidebar } from "./chrome/Sidebar.js";
 import { Titlebar } from "./chrome/Titlebar.js";
-import { onFocusTerminal, onOpenTerminalTab, requestNavBack } from "./lib/bus.js";
+import { onFocusTerminal, onNavigateBack, onOpenPullRequest, onOpenTerminalTab, requestNavBack, toggleAgentPanel } from "./lib/bus.js";
 import { SearchOverlay } from "./search/SearchOverlay.js";
 import { WorktreeClosePrompt } from "./chrome/WorktreeClosePrompt.js";
 import { SearchView } from "./search/SearchView.js";
@@ -25,7 +24,7 @@ import { TabProvider, useTabs } from "./store.js";
 import { TerminalView } from "./terminal/TerminalView.js";
 import { TipsProvider } from "./tips/TipsProvider.js";
 
-export type View = "terminal" | "board" | "agent" | "reviews" | "activity" | "search" | "settings";
+export type View = "terminal" | "board" | "reviews" | "activity" | "search" | "settings";
 
 export default function App() {
   return (
@@ -56,6 +55,9 @@ function Shell() {
   // Pages stay mounted across switches, so replay the enter animation by hand.
   const pageRef = useRef<HTMLDivElement>(null);
   useEffect(() => { pageRef.current?.getAnimations().forEach((animation) => { animation.cancel(); animation.play(); }); }, [view]);
+  // Board and activity stay mounted once opened, so back from a PR finds them as they were left.
+  const [visited, setVisited] = useState<View[]>([]);
+  useEffect(() => { if ((view === "board" || view === "activity") && !visited.includes(view)) setVisited((pages) => [...pages, view]); }, [view, visited]);
   const [preview, setPreview] = useState<{ sessionId: string; query: string }>();
   const { tabs, focusTab, newTab, requestCloseTab, reopenTab, activeId } = useTabs();
   const settings = useSettings();
@@ -127,6 +129,9 @@ function Shell() {
   // Opening a tab from anywhere lands back in the terminal.
   useEffect(() => onOpenTerminalTab(() => setView("terminal")), [setView]);
   useEffect(() => onFocusTerminal((termId) => { focusTab(termId); setView("terminal"); }), [focusTab, setView]);
+  // Every PR opens on the reviews page, whichever page it was picked on.
+  useEffect(() => onOpenPullRequest(() => setView("reviews")), [setView]);
+  useEffect(() => onNavigateBack(goBack), [goBack]);
 
   const openPreview = useCallback((sessionId: string, query: string) => {
     setPreview({ sessionId, query });
@@ -141,7 +146,7 @@ function Shell() {
     else if (command === "settings") setView("settings");
     else if (command === "view.terminal") setView("terminal");
     else if (command === "view.board") setView("board");
-    else if (command === "view.agent") setView("agent");
+    else if (command === "view.agent") toggleAgentPanel();
     else if (command === "view.reviews") setView("reviews");
     else if (command === "view.activity") setView("activity");
     else if (command === "zen") setMode(mode === "zen" ? "normal" : "zen");
@@ -222,15 +227,14 @@ function Shell() {
               />
             </div>
           )}
-          <AgentPage visible={view === "agent"} />
           <ReviewsView visible={view === "reviews"} />
-          {view === "board" && <BoardView />}
-          {view === "activity" && <ActivityView />}
+          {(view === "board" || visited.includes("board")) && <div className={view === "board" ? "contents" : "hidden"}><BoardView visible={view === "board"} /></div>}
+          {(view === "activity" || visited.includes("activity")) && <div className={view === "activity" ? "contents" : "hidden"}><ActivityView /></div>}
           {view === "settings" && <SettingsView section={settingsSection} onSection={setSettingsSection} />}
           </div>
         </main>
       </div>
-      {view !== "agent" && <div className="workbench-chrome"><AgentDock onView={setView} /></div>}
+      <div className="workbench-chrome"><AgentDock /></div>
       <WorktreeClosePrompt />
       {onboarding && <Onboarding />}
       {searchOpen && (

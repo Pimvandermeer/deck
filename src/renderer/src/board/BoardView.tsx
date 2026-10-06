@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { IssuePr } from "../../../main/github.js";
 import type { BoardCache, BoardIssue } from "../../../main/board/types.js";
 import { boardProviderLabels } from "../../../shared/board.js";
 import type { DeckSettings } from "../../../shared/settings.js";
 import { BoardConnectionFields, boardConnected, boardConnectionHelp } from "../chrome/BoardConnectionFields.js";
-import { onNavBack } from "../lib/bus.js";
+import { onNavBack, openPullRequest } from "../lib/bus.js";
 import { BoardFilterBar, filterBoardIssues, noBoardFilters, type BoardFilters } from "./BoardFilters.js";
 import { useTabs } from "../store.js";
-import { PrScreen } from "./PrScreen.js";
 import { Icon } from "./icons.js";
 import { IssuePanel } from "./IssuePanel.js";
 
@@ -37,14 +35,13 @@ function avatarColor(name: string | null): string {
   return avatarColors[h % avatarColors.length];
 }
 
-export function BoardView() {
+export function BoardView({ visible = true }: { visible?: boolean }) {
   const { newTab } = useTabs();
   const [board, setBoard] = useState<BoardCache>();
   const [settings, setSettings] = useState<DeckSettings>();
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string>();
   const [selected, setSelected] = useState<BoardIssue>();
-  const [diffPr, setDiffPr] = useState<IssuePr>();
   const [filters, setFilters] = useState<BoardFilters>(() => ({
     ...noBoardFilters,
     mineOnly: localStorage.getItem(MINE_ONLY_KEY) === "true",
@@ -72,17 +69,15 @@ export function BoardView() {
     return () => { offChanged(); offError(); };
   }, []);
 
-  // Mouse-back closes the top overlay before the view history moves. Refs
-  // mirror the state because the dispatch needs a synchronous answer.
-  const overlayRef = useRef({ diff: false, panel: false });
-  overlayRef.current = { diff: Boolean(diffPr), panel: Boolean(selected) };
+  // Mouse-back closes the issue panel before the view history moves, but not
+  // while the board sits hidden behind another page. Refs mirror the state
+  // because the dispatch needs a synchronous answer.
+  const overlayRef = useRef({ visible: true, panel: false });
+  overlayRef.current = { visible, panel: Boolean(selected) };
   useEffect(
     () =>
       onNavBack((e) => {
-        if (overlayRef.current.diff) {
-          e.preventDefault();
-          setDiffPr(undefined);
-        } else if (overlayRef.current.panel) {
+        if (overlayRef.current.visible && overlayRef.current.panel) {
           e.preventDefault();
           setSelected(undefined);
         }
@@ -358,17 +353,10 @@ export function BoardView() {
           issue={selected}
           rejected={rejectedRe.test(selected.statusName)}
           onClose={() => setSelected(undefined)}
-          onOpenDiff={setDiffPr}
+          onOpenDiff={(pr) => openPullRequest({ repo: pr.repo, number: pr.number, title: pr.title, url: pr.url, author: pr.author, isDraft: pr.isDraft, updatedAt: pr.updatedAt, issueKey: selected.key })}
         />
       )}
       </div>
-      {diffPr && (
-        <PrScreen
-          pr={diffPr}
-          issue={selected}
-          onClose={() => setDiffPr(undefined)}
-        />
-      )}
     </div>
   );
 }

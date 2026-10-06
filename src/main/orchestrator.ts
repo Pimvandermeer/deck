@@ -11,7 +11,7 @@ import { createTerm, sendToTerm } from "./pty.js";
 import { getSettings } from "./settings.js";
 import { listSessions } from "./sessions.js";
 
-// The tools the agent page's assistant gets, served over MCP (streamable
+// The tools the agent panel's assistant gets, served over MCP (streamable
 // HTTP, JSON responses) from deck's own server. This is what turns "ask deck"
 // into an orchestrator: it can start agents, talk to them and act on PRs.
 

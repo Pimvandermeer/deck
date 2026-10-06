@@ -27,6 +27,18 @@ describe("review source migration", () => {
   });
 });
 
+describe("start page", () => {
+  it("opens on the terminal for a profile that started on the agent page", () => {
+    state.stored = { defaultView: "agent" };
+    expect(getSettings().defaultView).toBe("terminal");
+  });
+
+  it("keeps any other start page", () => {
+    state.stored = { defaultView: "board" };
+    expect(getSettings().defaultView).toBe("board");
+  });
+});
+
 describe("experiments", () => {
   it("adds the flags a profile was saved without, off", () => {
     state.stored = { theme: "light" };

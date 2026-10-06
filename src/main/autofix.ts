@@ -8,7 +8,7 @@ import { getSettings } from "./settings.js";
 import { listSessions } from "./sessions.js";
 
 // Agents that repair the user's own PRs: failing CI and merge conflicts start
-// one automatically (per settings); the agent page can also ask for one, and
+// one automatically (per settings); the agent panel can also ask for one, and
 // for addressing requested changes.
 
 export type FixProblem = Attention;
@@ -106,7 +106,7 @@ export function startAutoFix(): void {
   });
   onPrInboxChanged((inbox) => {
     for (const { pr, problem } of pendingAutoFixes(inbox)) {
-      // Missing checkouts stay pending; the agent page reports them.
+      // Missing checkouts stay pending; the agent panel reports them.
       console.log(`autofix: starting ${problem} agent on ${pr.repo}#${pr.number} (updated ${pr.updatedAt})`);
       void startFix(pr, problem).catch(() => {});
     }

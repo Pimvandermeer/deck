@@ -61,7 +61,7 @@ export interface OnMergeSettings {
  *    whether or not GitHub asked the user for a review. */
 export type ReviewSource = "github" | "board";
 
-/** Which sessions the agent page may be told about: every live one, those in
+/** Which sessions deck's agent may be told about: every live one, those in
  *  the repository being worked in, or those under a listed project. */
 export type SharingMode = "all" | "current" | "allowlist";
 
@@ -125,7 +125,7 @@ export interface ExperimentSettings {
 }
 
 /** The page deck opens on. */
-export type DefaultView = "terminal" | "board" | "agent" | "reviews" | "activity";
+export type DefaultView = "terminal" | "board" | "reviews" | "activity";
 
 /** Models the orchestrator can run on: aliases claude accepts plus the full id where no alias exists. */
 export const askModels = [

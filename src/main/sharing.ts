@@ -3,7 +3,7 @@ import path from "node:path";
 import { getSettings } from "./settings.js";
 import { listSessions, type AgentSession } from "./sessions.js";
 
-// Decides what the agent page's model may be told: which sessions, their
+// Decides what the agent panel's model may be told: which sessions, their
 // transcripts, the issue board and the PR inbox. Every outbound path asks here.
 
 // The repository of the active terminal tab, set by the renderer. Unset while

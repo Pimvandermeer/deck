@@ -5,7 +5,7 @@ import type { Agent } from "../../../shared/agents.js";
 import { useAgentChoice } from "./AgentSelect.js";
 import { applyEvent, finishTurn, loadTurns, saveTurns, type ChatTurn } from "./ChatTurns.js";
 
-// One conversation with deck's agent, shared by the agent page and the dock
+// One conversation with deck's agent, shared by every page through the agent panel
 // and kept in localStorage so switching pages, a reload or a restart does not
 // lose it. The main process keeps the matching claude session id.
 

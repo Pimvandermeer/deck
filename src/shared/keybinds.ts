@@ -30,7 +30,7 @@ export const keybindInfos: KeybindInfo[] = [
   { id: "window.new", label: "New window", group: "Workbench", default: "Meta+N", linux: "Ctrl+Shift+N" },
   { id: "view.terminal", label: "Terminal page", group: "Workbench", default: "Meta+Alt+Digit1", linux: "Ctrl+Alt+Digit1" },
   { id: "view.board", label: "Board page", group: "Workbench", default: "Meta+Alt+Digit2", linux: "Ctrl+Alt+Digit2" },
-  { id: "view.agent", label: "Agent page", group: "Workbench", default: "Meta+Alt+Digit3", linux: "Ctrl+Alt+Digit3" },
+  { id: "view.agent", label: "Agent panel", group: "Workbench", default: "Meta+Alt+Digit3", linux: "Ctrl+Alt+Digit3" },
   { id: "view.reviews", label: "Reviews page", group: "Workbench", default: "Meta+Alt+Digit4", linux: "Ctrl+Alt+Digit4" },
   { id: "view.activity", label: "Activity page", group: "Workbench", default: "Meta+Alt+Digit5", linux: "Ctrl+Alt+Digit5" },
   { id: "zen", label: "Toggle Zen view", group: "Workbench", default: "Meta+Shift+Enter", linux: "Ctrl+Shift+Enter" },

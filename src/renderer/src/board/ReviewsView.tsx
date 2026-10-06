@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { IssuePr, ReviewEvent } from "../../../main/github.js";
 import type { InboxPr } from "../../../main/prInbox.js";
-import { ballFrom, ballText, type ActivitySeen, type BoardActivity, type Stance } from "../../../shared/activity.js";
+import type { ActivitySeen, BoardActivity } from "../../../shared/activity.js";
 import { prKey } from "../../../shared/prs.js";
-import { onOpenPullRequest, type OpenPrDetail } from "../lib/bus.js";
+import { navigateBack, onOpenPullRequest, type OpenPrDetail } from "../lib/bus.js";
 import { issueFor, useReviewQueue } from "../lib/reviews.js";
 import { prNews, useBoardActivity } from "../lib/useActivity.js";
 import { useAgentLinks } from "../lib/useAgentLinks.js";
@@ -13,6 +13,7 @@ import type { BoardCache } from "../../../main/board/types.js";
 import { AgentChip } from "./AgentLinks.js";
 import { Icon } from "./icons.js";
 import { PrScreen } from "./PrScreen.js";
+import { MovePill, moveOf } from "./prUi.js";
 
 // The review queue: every PR waiting on the user's review, one at a time,
 // with next/previous like a mail client. Approving or requesting changes
@@ -27,9 +28,7 @@ const toIssuePr = (pr: InboxPr): IssuePr => ({ repo: pr.repo, number: pr.number,
 const checkTone: Record<string, string> = { SUCCESS: "text-green", FAILURE: "text-red", ERROR: "text-red", PENDING: "text-orange" };
 const checkLabel: Record<string, string> = { SUCCESS: "Checks passed", FAILURE: "Checks failed", ERROR: "Checks errored", PENDING: "Checks running", EXPECTED: "Checks expected" };
 
-const ballTone: Record<Stance, string> = { you: "text-orange", them: "text-blue", others: "text-dim", done: "text-dim" };
-
-function PrList({ title, prs, current, badge, onPick, activity, seen, links = [], board, requested }: {
+function PrList({ title, prs, current, badge, onPick, activity, seen, links = [], board, requested = new Set() }: {
   title: string;
   prs: InboxPr[];
   current?: InboxPr;
@@ -53,7 +52,6 @@ function PrList({ title, prs, current, badge, onPick, activity, seen, links = []
         const note = badge?.(pr);
         const fresh = news.get(prKey(pr))!;
         const known = activity?.prs[prKey(pr)];
-        const ball = known && ballFrom(known, activity!.viewer, requested?.has(prKey(pr)));
         const agent = agentsForPr(pr, issueFor(pr, board)?.key, links)[0];
         return (
           <button key={prKey(pr)} onClick={() => onPick(pr)} title={`${pr.title}\n${prKey(pr)}${fresh.length ? `\nNew: ${fresh.join(", ")}` : ""}`}
@@ -73,7 +71,7 @@ function PrList({ title, prs, current, badge, onPick, activity, seen, links = []
             </span>
             {known && (
               <span className="flex items-center gap-1.5 truncate text-[10px] text-dim">
-                <span className={`truncate ${ballTone[ball!.stance]} ${ball!.stance === "you" ? "font-bold" : ""}`} title="Whose move it is">▸ {ballText(ball!)}</span>
+                <span className="flex min-w-0"><MovePill move={moveOf(known, activity!.viewer, requested)} /></span>
                 {known.unresolvedThreads > 0 && <span className="text-orange">· {known.unresolvedThreads} open</span>}
                 {fresh.length > 0 && <span className="truncate text-accent">· {fresh.join(", ")}</span>}
               </span>
@@ -98,11 +96,20 @@ export function ReviewsView({ visible }: { visible: boolean }) {
   const [picked, setPicked] = useState<string>();
   const [rail, setRail] = useState(() => localStorage.getItem("deck.reviews.rail") !== "hidden");
   const [reviewed, setReviewed] = useState<{ key: string; event: ReviewEvent }>();
-  // A PR reached from a stack link, which need not be in the queue at all.
-  const [linked, setLinked] = useState<OpenPrDetail>();
+  // A PR opened from another page or a stack link, which need not be in the
+  // queue at all; fromPage says whether Back leaves the reviews page.
+  const [linked, setLinked] = useState<OpenPrDetail & { fromPage: boolean }>();
 
   const toggleRail = () => setRail((open) => { localStorage.setItem("deck.reviews.rail", open ? "hidden" : "visible"); return !open; });
-  useEffect(() => onOpenPullRequest(setLinked), []);
+  // Leaving the page drops the linked PR so the queue shows next time; the
+  // link arrives while the page is still hidden, so only visible→hidden counts.
+  const wasVisible = useRef(visible);
+  // A stack link followed here keeps where the first PR came from.
+  useEffect(() => onOpenPullRequest((pr) => setLinked((prev) => ({ ...pr, fromPage: wasVisible.current ? prev?.fromPage ?? false : true }))), []);
+  useEffect(() => {
+    if (wasVisible.current && !visible) setLinked(undefined);
+    wasVisible.current = visible;
+  }, [visible]);
 
   // A review column can hold PRs the user has already reviewed, so the
   // section below lists only the ones the queue left out.
@@ -122,7 +129,7 @@ export function ReviewsView({ visible }: { visible: boolean }) {
     setLinked(undefined);
     if (at >= 0) { setIndex(at); setPicked(undefined); } else setPicked(prKey(pr));
   };
-  const issue = current ? issueFor(current, board) : undefined;
+  const issue = (linked?.issueKey ? board?.issues.find((i) => i.key === linked.issueKey) : undefined) ?? (current ? issueFor(current, board) : undefined);
 
   const go = (delta: number) => {
     const from = position >= 0 ? position : index;
@@ -163,20 +170,21 @@ export function ReviewsView({ visible }: { visible: boolean }) {
 
   return (
     <div className={`${visible ? "flex" : "hidden"} min-h-0 min-w-0 flex-1 flex-col`}>
-      <div className="flex items-center gap-3 border-b border-edge px-6 py-3 font-sans text-[12px]">
+      <div className="flex items-center gap-3 border-b border-edge px-6 py-3">
+        {linked && <button aria-label="Back" title={linked.fromPage ? "Back to where this PR was opened" : "Back to the review queue"} onClick={() => { setLinked(undefined); if (linked.fromPage) navigateBack(); }} className="-ml-1.5 rounded px-1.5 py-0.5 text-[11px] text-dim hover:bg-card2 hover:text-ink">‹ Back</button>}
         <span className="font-bold text-ink">Reviews</span>
-        <span className="text-[11px] text-dim">{queue.length === 0 ? "nothing waiting on you" : `${position + 1} of ${queue.length}`}</span>
-        {current && reviewedPrs.has(prKey(current)) && (
-          reviewedPrs.get(prKey(current))
-            ? <span title="You reviewed this and the author has pushed since" className="rounded border border-orange/40 px-1.5 py-0.5 text-[10px] text-orange">new since your review</span>
-            : <span title="You reviewed this; nothing new since" className="rounded border border-edge3 px-1.5 py-0.5 text-[10px] text-dim">reviewed</span>
-        )}
+        <span className="text-[11px] text-dim">{queue.length === 0 ? "nothing waiting on you" : position < 0 ? `not in your queue · ${queue.length} waiting` : `${position + 1} of ${queue.length}`}</span>
+        {/* One chip: what just arrived beats the standing review state. */}
+        {current && (arrived?.key === prKey(current)
+          ? <span title={arrived.news.join("\n")} className="truncate rounded border border-accent/40 px-1.5 py-0.5 font-sans text-[10px] text-accent">new: {arrived.news.join(" · ")}</span>
+          : reviewedPrs.has(prKey(current)) && (reviewedPrs.get(prKey(current))
+            ? <span title="You reviewed this and the author has pushed since" className="rounded border border-orange/40 px-1.5 py-0.5 font-sans text-[10px] text-orange">new since your review</span>
+            : <span title="You reviewed this; nothing new since" className="rounded border border-edge3 px-1.5 py-0.5 font-sans text-[10px] text-dim">reviewed</span>))}
         {issue && (
-          <button onClick={() => window.open(issue.url)} className="flex min-w-0 items-center gap-1.5 truncate text-[11px] text-body hover:text-ink" title={`Open ${issue.key}`}>
+          <button onClick={() => window.open(issue.url)} className="flex min-w-0 items-center gap-1.5 truncate font-sans text-[11px] text-body hover:text-ink" title={`Open ${issue.key}`}>
             <Icon name="issue" size={11} className="text-dim" /><span className="text-mut">{issue.key}</span><span className="truncate">{issue.summary}</span><span className="shrink-0 text-dim">· {issue.statusName}</span>
           </button>
         )}
-        {current && arrived?.key === prKey(current) && <span title={arrived.news.join("\n")} className="truncate rounded border border-accent/40 px-1.5 py-0.5 text-[10px] text-accent">new: {arrived.news.join(" · ")}</span>}
         {current && reviewed?.key === prKey(current) && <span className={`text-[11px] ${reviewed.event === "APPROVE" ? "text-green" : "text-red"}`}>{reviewed.event === "APPROVE" ? "✓ approved" : "✗ changes requested"}</span>}
         <span className="ml-auto flex items-center gap-1 text-[11px] text-dim">
           <button aria-label="Previous review" title="Previous (p)" disabled={position <= 0} onClick={() => go(-1)} className="rounded px-1.5 py-0.5 hover:bg-card2 hover:text-ink disabled:opacity-30">‹ prev</button>

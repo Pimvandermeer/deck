@@ -57,6 +57,8 @@ export interface OpenPrDetail {
   author: string;
   isDraft: boolean;
   updatedAt: string;
+  /** The ticket it was opened from, when the PR's title and branch do not name it. */
+  issueKey?: string;
 }
 
 export function openPullRequest(detail: OpenPrDetail): void {
@@ -67,4 +69,28 @@ export function onOpenPullRequest(cb: (detail: OpenPrDetail) => void): () => voi
   const listener = (e: Event) => cb((e as CustomEvent<OpenPrDetail>).detail);
   window.addEventListener(OPEN_PR, listener);
   return () => window.removeEventListener(OPEN_PR, listener);
+}
+
+const TOGGLE_AGENT = "deck:toggle-agent";
+
+/** Opens or closes deck's agent panel, from the keyboard or a page. */
+export function toggleAgentPanel(): void {
+  window.dispatchEvent(new CustomEvent(TOGGLE_AGENT));
+}
+
+export function onToggleAgentPanel(cb: () => void): () => void {
+  window.addEventListener(TOGGLE_AGENT, cb);
+  return () => window.removeEventListener(TOGGLE_AGENT, cb);
+}
+
+const GO_BACK = "deck:go-back";
+
+/** Steps the page history back, as the mouse back button does. */
+export function navigateBack(): void {
+  window.dispatchEvent(new CustomEvent(GO_BACK));
+}
+
+export function onNavigateBack(cb: () => void): () => void {
+  window.addEventListener(GO_BACK, cb);
+  return () => window.removeEventListener(GO_BACK, cb);
 }

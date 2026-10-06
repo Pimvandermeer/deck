@@ -69,6 +69,8 @@ export function getSettings(): DeckSettings {
   // Own tabs used to be a flag on top of "panel"; it is a window mode of its own now.
   if (stored.windowMode === "panel" && (stored as { hotkeyOwnTabs?: boolean }).hotkeyOwnTabs)
     stored.windowMode = "panel-own-tabs";
+  // The agent page folded into the agent panel, which every page has.
+  if ((stored.defaultView as string) === "agent") stored.defaultView = "terminal";
   const workspaces = storedWorkspaces(stored).map(withDefaults);
   const active = workspaces.find((w) => w.id === stored.activeWorkspace) ?? workspaces[0];
   return {

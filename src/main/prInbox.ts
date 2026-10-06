@@ -13,7 +13,7 @@ export { attentionReasons } from "../shared/prs.js";
 export type { Attention, InboxPr, PrInbox } from "../shared/prs.js";
 
 // The user's open pull requests and the ones waiting on their review, kept
-// warm so the agent page can answer "what needs me?" without a round trip.
+// warm so the agent panel can answer "what needs me?" without a round trip.
 // One GraphQL search per list: gh's `search prs` cannot return checks or
 // mergeability.
 

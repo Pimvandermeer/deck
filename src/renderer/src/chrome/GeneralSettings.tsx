@@ -37,7 +37,7 @@ export function GeneralSettings() {
             <Field label="Start page">
               <select aria-label="Start page" className={`w-full ${control}`} value={settings.defaultView}
                 onChange={(e) => void update({ defaultView: e.target.value as DeckSettings["defaultView"] })}>
-                <option value="terminal">Terminal</option><option value="agent">Agent</option><option value="reviews">Reviews</option><option value="board">Board</option><option value="activity">Activity</option>
+                <option value="terminal">Terminal</option><option value="reviews">Reviews</option><option value="board">Board</option><option value="activity">Activity</option>
               </select>
             </Field>
           </div>
@@ -54,7 +54,7 @@ export function GeneralSettings() {
           </div>
         </Card>
 
-        <Card title="What deck may share with the agent" description="The agent page sends your question to Claude or Codex together with context about your work. This is what deck may include.">
+        <Card title="What deck may share with the agent" description="The agent panel sends your question to Claude or Codex together with context about your work. This is what deck may include.">
           <Field label="Sessions">
             <select aria-label="Sessions shared with the agent" className={`w-full ${control}`} value={settings.agentSharing.mode}
               onChange={(e) => {

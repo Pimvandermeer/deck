@@ -2,6 +2,7 @@ import type { View } from "../App.js";
 import { presentationSizes, useDisplayMode, viewTitles } from "../chrome/DisplayMode.js";
 import { settingsSections, type SettingsSection } from "../chrome/SettingsView.js";
 import { useExtensions } from "../extensions/ExtensionProvider.js";
+import { toggleAgentPanel } from "../lib/bus.js";
 import { useSettings } from "../lib/useSettings.js";
 import { useTabs } from "../store.js";
 import { terminalAction, type TerminalAction } from "../terminal/actions.js";
@@ -40,7 +41,7 @@ export interface PaletteActionProps {
 /** Chromium zoom levels: 0 is 100% and each level scales by 1.2. Electron's own zoom menu steps by half a level. */
 const ZOOM_STEP = 0.5;
 const ZOOM_LIMIT = 3;
-const pages: DefaultView[] = ["terminal", "board", "agent", "reviews", "activity"];
+const pages: DefaultView[] = ["terminal", "board", "reviews", "activity"];
 const agents = Object.keys(agentLabels) as Agent[];
 const cursorStyles: { id: CursorStyle; label: string }[] = [{ id: "block", label: "Block" }, { id: "underline", label: "Underline" }, { id: "bar", label: "Bar" }];
 const sectionKeywords: Record<SettingsSection, string> = {
@@ -89,6 +90,7 @@ export function usePaletteActions({ onView, onSettings, onSidebar }: PaletteActi
     item("⌂", "File explorer", "Project files", inTerminal("files")),
     item("±", "Working-tree changes", chord("changes"), inTerminal("changes"), { keywords: "git diff" }),
     item("▤", "Toggle sidebar", chord("sidebar"), onSidebar),
+    item("✳", "Toggle agent panel", chord("view.agent"), toggleAgentPanel, { keywords: "ask deck chat dock open close" }),
     item("⌕", "Search chat history", "Claude + Codex", () => onView("search")),
     ...pages.map((page) => item("◫", `${viewTitles[page]} page`, chord(`view.${page}`), () => onView(page), { keywords: "go to open panel" })),
     ...settingsSections.map((section) => item("⚙", `${section.label} settings`, section.id === "appearance" ? chord("settings") : "Settings", () => onSettings(section.id), { keywords: sectionKeywords[section.id] })),

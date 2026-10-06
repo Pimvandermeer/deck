@@ -1,27 +1,28 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { IssuePr } from "../../../main/github.js";
 import type { BoardIssue } from "../../../main/board/types.js";
-import { ballFrom, ballText, stackedOn, summarizeBalls, ticketBall, type ActivityPr, type ActivityRow, type BallState, type BallSummary, type Stance } from "../../../shared/activity.js";
-import { agentsForPr, agentsForTicket, needsYou, type AgentLink, type LinkedAgent, type PastSession } from "../../../shared/agentLinks.js";
-import type { Agent } from "../../../shared/agents.js";
+import { ballText, stackedOn, summarizeBalls, type ActivityPr, type ActivityRow, type BallSummary, type Stance } from "../../../shared/activity.js";
+import { agentsForPr, agentsForTicket, type AgentLink, type PastSession } from "../../../shared/agentLinks.js";
+import { agentLabels, type Agent } from "../../../shared/agents.js";
 import type { RepoDir } from "../../../main/providers.js";
 import { prKey } from "../../../shared/prs.js";
-import { useActivityRows } from "../lib/useActivity.js";
+import { agentBall, looseWaitingAgents, rowActive, rowBall, useActivityRows, type RowBall } from "../lib/useActivity.js";
+import { focusTerminal, openPullRequest } from "../lib/bus.js";
+import { StatusMark, statusLabels, statusTones } from "../chrome/SessionIcon.js";
 import { useAgentLinks } from "../lib/useAgentLinks.js";
-import { AgentChip, ContinueButton, continuation } from "./AgentLinks.js";
+import { AgentChip, ContinueButton, continuation, type Continuation } from "./AgentLinks.js";
 import { usePrInbox } from "../lib/useInbox.js";
 import { useSettings } from "../lib/useSettings.js";
 import { Icon } from "./icons.js";
 import { IssuePanel } from "./IssuePanel.js";
-import { PrScreen } from "./PrScreen.js";
-import { relativeTime } from "./prUi.js";
+import { MovePill, moveOf, relativeTime, type Move } from "./prUi.js";
 
 // Every board ticket with its PRs, grouped by whose move it is (waiting on
 // the user, the user waiting on someone, or between others) or by what
 // changed since the user last looked. Each PR says whose move it is in words.
 
 type Row = ActivityRow<BoardIssue>;
-type Filter = "all" | "new" | "mine" | "agents";
+type Filter = "all" | "mine" | "agents";
 type GroupBy = "ball" | "news";
 
 const DONE_KEY = "deck.activity.showDone";
@@ -47,48 +48,6 @@ const reviewWords: Record<string, { text: string; tone: string }> = {
 };
 
 const toIssuePr = (pr: ActivityPr): IssuePr => ({ repo: pr.repo, number: pr.number, title: pr.title, state: pr.state, isDraft: pr.isDraft, url: pr.url, author: pr.author, updatedAt: pr.updatedAt });
-
-interface Move { label: string; tone: string; strong?: boolean; hint: string }
-
-const tones = {
-  blue: "bg-blue/10 text-blue",
-  orange: "bg-orange/10 text-orange",
-  green: "bg-green/10 text-green",
-  accent: "bg-accent/10 text-accent",
-  dim: "bg-card2 text-mut",
-};
-
-const stanceTone: Record<Stance, string> = { you: tones.orange, them: tones.blue, others: tones.dim, done: tones.accent };
-
-/** Whose move it is on one PR, from the user's side of it. */
-function moveOf(pr: ActivityPr, viewer: string, requested: Set<string>): Move & { state: BallState } {
-  const state = ballFrom(pr, viewer, requested.has(prKey(pr)));
-  const since = `since ${relativeTime(state.since)}`;
-  if (pr.state === "MERGED") return { state, label: "Merged", tone: tones.accent, hint: pr.mergedAt ? `Merged ${relativeTime(pr.mergedAt)}` : "Merged" };
-  if (pr.state === "CLOSED") return { state, label: "Closed", tone: tones.dim, hint: "Closed without merging" };
-  const label = ballText(state);
-  const tone = state.stance === "you" && state.action === "merge" ? tones.green : stanceTone[state.stance];
-  return { state, label, tone, strong: state.stance === "you", hint: `${label} · ${since}` };
-}
-
-/** A ticket's ball, with the PR it is on and the agent waiting on the user when that is it. */
-type RowBall = BallState & { pr?: ActivityPr; agent?: LinkedAgent };
-
-/** One ball per ticket, from its open PRs and any agent of it waiting on the
- *  user; merged work on a ticket that has not moved is its assignee's move. */
-function rowBall(row: Row, viewer: string, requested: Set<string>, links: AgentLink[], myAccountId?: string): RowBall | undefined {
-  const open = row.prs.filter((pr) => pr.state === "OPEN");
-  const waiting = agentsForTicket(row.issue.key, row.prs, links).find((agent) => needsYou(agent.link.status));
-  if (open.length === 0 && !waiting) {
-    const merged = row.prs.filter((pr) => pr.state === "MERGED").sort((a, b) => (b.mergedAt ?? "").localeCompare(a.mergedAt ?? ""))[0];
-    if (!merged || row.done) return undefined;
-    const mine = Boolean(myAccountId) && row.issue.assigneeId === myAccountId;
-    return { stance: mine ? "you" : "others", who: mine ? [viewer] : [row.issue.assignee ?? "the assignee"], action: "move ticket", since: merged.mergedAt ?? merged.updatedAt };
-  }
-  const states = open.map((pr) => ({ pr, state: ballFrom(pr, viewer, requested.has(prKey(pr))) }));
-  const best = ticketBall(states.map(({ state }) => state), waiting && { since: new Date(waiting.link.updatedAt).toISOString() });
-  return best && { ...best, pr: states.find(({ state }) => state === best)?.pr ?? states[0]?.pr, agent: best.action === "answer agent" ? waiting : undefined };
-}
 
 const actionPlural: Record<string, [string, string]> = {
   review: ["review", "reviews"], "re-review": ["re-review", "re-reviews"], address: ["review to address", "reviews to address"],
@@ -129,10 +88,6 @@ function BallOverview({ summary, stance, person, onStance, onPerson }: {
   );
 }
 
-function MovePill({ move }: { move: Move }) {
-  return <span title={move.hint} className={`inline-flex h-[18px] max-w-full shrink-0 items-center truncate rounded-full px-2 text-[10px] ${move.tone} ${move.strong ? "font-bold" : ""}`}>{move.label}</span>;
-}
-
 function Section({ title, count, tone = "text-dim", collapsed, onToggle, children }: {
   title: string; count: number; tone?: string; collapsed?: boolean; onToggle?: () => void; children: ReactNode;
 }) {
@@ -166,7 +121,6 @@ export function ActivityView() {
   const [repos, setRepos] = useState<RepoDir[]>([]);
   const [past, setPast] = useState<Record<string, PastSession>>({});
   useEffect(() => { void window.deck.search.listRepos().then(setRepos, () => {}); }, []);
-  const [diffPr, setDiffPr] = useState<IssuePr>();
   const [refreshing, setRefreshing] = useState(false);
 
   const viewer = activity?.viewer ?? "";
@@ -181,7 +135,6 @@ export function ActivityView() {
   const matching = useMemo(() => {
     const text = query.trim().toLowerCase();
     return rows.filter((row) => {
-      if (filter === "new" && row.changes.length === 0) return false;
       if (filter === "mine" && !isMine(row)) return false;
       if (filter === "agents" && !hasAgent(row)) return false;
       if (!text) return true;
@@ -191,14 +144,17 @@ export function ActivityView() {
   }, [rows, query, filter, board, viewer, links]);
 
   const balls = useMemo(() => new Map(matching.map((row) => [row.issue.key, rowBall(row, viewer, requested, links, board?.myAccountId)])), [matching, viewer, requested, links, board]);
-  // A done ticket with a PR still open is not done for whoever holds that PR.
-  const active = (row: Row) => !row.done || row.prs.some((pr) => pr.state === "OPEN");
-  const summary = useMemo(() => summarizeBalls(matching.filter(active).map((row) => balls.get(row.issue.key))), [matching, balls]);
+  // Waiting agents no ticket accounts for, listed and counted with the rest of the user's moves.
+  const loose = useMemo(() => {
+    const text = query.trim().toLowerCase();
+    return looseWaitingAgents(rows, links).filter((link) => !text || `${link.title ?? ""} ${link.cwd} ${link.agent}`.toLowerCase().includes(text));
+  }, [rows, links, query]);
+  const summary = useMemo(() => summarizeBalls([...matching.filter(rowActive).map((row) => balls.get(row.issue.key)), ...loose.map(agentBall)]), [matching, balls, loose]);
   // Within a ball section: new first, then whoever has waited longest.
   const byWait = (a: Row, b: Row) => Number(b.changes.length > 0) - Number(a.changes.length > 0)
     || (balls.get(a.issue.key)?.since ?? "").localeCompare(balls.get(b.issue.key)?.since ?? "");
   const ballSections = useMemo(() => {
-    const live = matching.filter(active);
+    const live = matching.filter(rowActive);
     const of = (key: Stance) => live
       .filter((row) => balls.get(row.issue.key)?.stance === key)
       .filter((row) => !person || (balls.get(row.issue.key)?.who.length ? balls.get(row.issue.key)!.who.includes(person) : person === "reviewers"))
@@ -208,7 +164,7 @@ export function ActivityView() {
       them: of("them"),
       others: of("others"),
       noPr: live.filter((row) => !balls.get(row.issue.key)),
-      done: matching.filter((row) => !active(row)),
+      done: matching.filter((row) => !rowActive(row)),
     };
   }, [matching, balls, person]);
   const othersGroups = useMemo(() => groupStacks(ballSections.others, allPrs), [ballSections.others, allPrs]);
@@ -253,10 +209,10 @@ export function ActivityView() {
     if (row.changes.length > 0) void window.deck.activity.markSeen({ tickets: [row.issue.key] });
     setSelected(row.issue);
   };
+  // PRs open on the reviews page, the one PR screen; back returns here.
   const openPr = (row: Row, pr: ActivityPr) => {
     void window.deck.activity.markSeen({ prs: [prKey(pr)] });
-    setSelected(row.issue);
-    setDiffPr(toIssuePr(pr));
+    openPullRequest({ ...toIssuePr(pr), issueKey: row.issue.key });
   };
   const refresh = async () => {
     setRefreshing(true);
@@ -267,7 +223,7 @@ export function ActivityView() {
 
   const defaultAgent: Agent = settings?.defaultAgent ?? "claude";
   const rowProps = { viewer, requested, allPrs, links, past, repos, defaultAgent, selectedKey: selected?.key, onOpen: openRow, onOpenPr: openPr };
-  const counts: Record<Filter, number> = { all: rows.length, new: unread, mine: rows.filter(isMine).length, agents: rows.filter(hasAgent).length };
+  const counts: Record<Filter, number> = { all: rows.length, mine: rows.filter(isMine).length, agents: rows.filter(hasAgent).length };
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -284,10 +240,10 @@ export function ActivityView() {
       </div>
       <div className="flex flex-wrap items-center gap-2 border-b border-edge px-6 py-2 font-sans text-[11px]">
         <div role="group" aria-label="Show" className="flex rounded-md border border-edge2 p-0.5">
-          {(["all", "new", "mine", "agents"] as const).filter((f) => f !== "mine" || board?.myAccountId || viewer).map((f) => (
+          {(["all", "mine", "agents"] as const).filter((f) => f !== "mine" || board?.myAccountId || viewer).map((f) => (
             <button key={f} onClick={() => setFilter(f)} aria-pressed={filter === f}
               className={`flex items-center gap-1.5 rounded px-2.5 py-0.5 ${filter === f ? "bg-card2 text-ink" : "text-dim hover:text-ink"}`}>
-              {f === "all" ? "All" : f === "new" ? "New" : f === "mine" ? "Mine" : "With agent"}<span className={f === "new" && counts.new > 0 ? "text-accent" : "text-mut"}>{counts[f]}</span>
+              {f === "all" ? "All" : f === "mine" ? "Mine" : "With agent"}<span className="text-mut">{counts[f]}</span>
             </button>
           ))}
         </div>
@@ -319,7 +275,8 @@ export function ActivityView() {
               </div>
             )}
             {groupBy === "ball" ? <>
-            {showBall("you") && <Section title="Waiting on you" count={ballSections.you.length} tone="text-orange">
+            {showBall("you") && <Section title="Waiting on you" count={ballSections.you.length + loose.length} tone="text-orange">
+              {loose.map((link) => <AgentRow key={link.sessionId} link={link} />)}
               {ballSections.you.map((row) => <TicketRow key={row.issue.key} row={row} ball={balls.get(row.issue.key)} {...rowProps} />)}
             </Section>}
             {showBall("them") && <Section title="You're waiting on" count={ballSections.them.length} tone="text-blue">
@@ -362,17 +319,16 @@ export function ActivityView() {
             {loaded && matching.length === 0 && (
               <div className="flex flex-col items-center gap-2 py-16 text-dim">
                 <Icon name="check" size={20} className="text-green" />
-                {rows.length === 0 ? "No tickets on the board." : filter === "new" ? "Nothing new since you last looked." : "Nothing matches."}
+                {rows.length === 0 ? "No tickets on the board." : "Nothing matches."}
               </div>
             )}
             {!loaded && <p className="py-8 text-dim">Waiting for the board and GitHub… Connect a board under Settings → Workspaces if nothing shows up.</p>}
           </div>
         </div>
         {selected && settings && (
-          <IssuePanel issue={selected} rejected={rejectedRe.test(selected.statusName)} onClose={() => setSelected(undefined)} onOpenDiff={setDiffPr} />
+          <IssuePanel issue={selected} rejected={rejectedRe.test(selected.statusName)} onClose={() => setSelected(undefined)} onOpenDiff={(pr) => openPullRequest({ ...pr, issueKey: selected.key })} />
         )}
       </div>
-      {diffPr && <PrScreen pr={diffPr} issue={selected} onClose={() => setDiffPr(undefined)} />}
     </div>
   );
 }
@@ -388,6 +344,29 @@ interface RowProps {
   selectedKey?: string;
   onOpen: (row: Row) => void;
   onOpenPr: (row: Row, pr: ActivityPr) => void;
+}
+
+/** An agent waiting on the user with no ticket of its own, so whose move it is covers every agent. */
+function AgentRow({ link }: { link: AgentLink }) {
+  const name = agentLabels[link.agent];
+  const next: Continuation = {
+    kind: "live", agent: { link, reason: "ticket" }, label: `Answer ${name}`,
+    hint: `${link.title ?? name} · ${statusLabels[link.status].toLowerCase()}\nOpens its terminal`, run: () => focusTerminal(link.termId),
+  };
+  const since = new Date(link.updatedAt).toISOString();
+  return (
+    <article onClick={next.run} aria-label={link.title ?? name} className="cursor-pointer border-b border-edge px-4 py-2.5 last:border-b-0 hover:bg-card">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className={`flex w-2 shrink-0 justify-center ${statusTones[link.status].text}`}><StatusMark status={link.status} size={9} /></span>
+        <span className="shrink-0 text-[11px] text-mut">{name}</span>
+        <span className="min-w-0 flex-1 truncate text-soft" title={link.title ?? undefined}>{link.title ?? link.cwd.split("/").pop()}</span>
+        <ContinueButton next={next} />
+        <span className="hidden shrink-0 truncate text-[11px] text-dim @[560px]:inline">{link.cwd.split("/").pop()}</span>
+        <span className="w-[64px] shrink-0 text-right text-[10px] text-orange" title={`${statusLabels[link.status]} since ${new Date(since).toLocaleString()}`}>waiting {relativeTime(since).replace(" ago", "")}</span>
+      </div>
+      {link.reviewNote && <p className="mt-1 line-clamp-2 pl-4 text-[11px] text-dim">{link.reviewNote}</p>}
+    </article>
+  );
 }
 
 function TicketRow({ row, compact = false, ball, viewer, requested, allPrs, links, past, repos, defaultAgent, selectedKey, onOpen, onOpenPr }: RowProps & { row: Row; compact?: boolean; ball?: RowBall }) {
