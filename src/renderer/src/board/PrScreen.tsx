@@ -1,19 +1,21 @@
 import { useAgentChoice } from "../agents/AgentSelect.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { parseDiff, type FileData, type ViewType } from "react-diff-view";
-import type { IssuePr, MergeMethod, PrComment, PrDetail, ReviewEvent } from "../../../main/github.js";
+import type { IssuePr, MergeMethod, PrCheck, PrComment, PrDetail, ReviewEvent } from "../../../main/github.js";
 import type { BoardIssue } from "../../../main/board/types.js";
 import type { RepoDir } from "../../../main/providers.js";
 import type { ComposerTarget, Draft, ThreadActions } from "./PrComments.js";
 import { PrDiffTab, type AskAgentRequest } from "./PrDiffTab.js";
 import { PrStackStrip } from "./PrStackStrip.js";
-import { PrOverview } from "./PrOverview.js";
+import { CheckDot, PrOverview } from "./PrOverview.js";
 import { Icon } from "./icons.js";
-import { PrAgentPanel } from "./PrAgentPanel.js";
-import { PrAgentStrip, threadInstruction } from "./AgentLinks.js";
+import { PrAgentBar, PrAgentPanel } from "./PrAgentPanel.js";
+import { threadInstruction } from "./AgentLinks.js";
 import { useReviewChat } from "./useReviewChat.js";
 import { usePrData } from "../lib/prData.js";
-import { checksSummary, shellQuote, Stat, toneColor } from "./prUi.js";
+import { useAgentLinks } from "../lib/useAgentLinks.js";
+import { agentsForPr } from "../../../shared/agentLinks.js";
+import { Avatar, checksSummary, checkTone, shellQuote, Stat } from "./prUi.js";
 
 // GitHub enables its merge button for exactly these merge-box states.
 const MERGEABLE_STATES = new Set(["CLEAN", "HAS_HOOKS", "UNSTABLE"]);
@@ -45,6 +47,19 @@ const mergeLabel: Record<MergeMethod, string> = {
   squash: "Squash & merge",
   rebase: "Rebase & merge",
 };
+
+/** The checks in a few words for the title row's meta line. */
+const checksLine = (checks: PrCheck[]): string => {
+  const tones = checks.map((c) => checkTone(c.state));
+  const failing = tones.filter((t) => t === "fail").length;
+  const pending = tones.filter((t) => t === "pending").length;
+  if (checks.length === 0) return "No checks";
+  if (failing > 0) return `${failing} of ${checks.length} checks failing`;
+  if (pending > 0) return `${pending} of ${checks.length} checks running`;
+  return `${checks.length} check${checks.length === 1 ? "" : "s"} passed`;
+};
+
+const decisionTone: Record<string, string> = { APPROVED: "text-green", CHANGES_REQUESTED: "text-red" };
 
 const isTyping = (e: KeyboardEvent) =>
   ["TEXTAREA", "INPUT", "SELECT"].includes((e.target as HTMLElement)?.tagName ?? "");
@@ -83,6 +98,14 @@ export function PrScreen({ pr, issue, onClose, embedded = false, hidden = false,
   const [agent, setAgent] = useAgentChoice();
   const [agentOpen, setAgentOpen] = useState(() => localStorage.getItem(ASSISTANT_KEY) === "open");
   const rejectRef = useRef<HTMLTextAreaElement>(null);
+  const links = useAgentLinks();
+  // Until the detail loads there is no branch to match, but the PRs an
+  // agent opened and its ticket already tell.
+  const linked = useMemo(
+    () => agentsForPr({ repo: pr.repo, number: pr.number, headRefName: detail?.headRefName ?? "" }, issue?.key, links),
+    [links, pr.repo, pr.number, detail?.headRefName, issue?.key],
+  );
+  const paused = linked.find((entry) => entry.link.status === "needs_review" && entry.link.reviewNote);
 
   useEffect(() => {
     void window.deck.search.listRepos().then(setRepos);
@@ -292,124 +315,59 @@ export function PrScreen({ pr, issue, onClose, embedded = false, hidden = false,
 
   const checks = detail ? checksSummary(detail.checks) : undefined;
   const openThreads = comments.filter((c) => c.path && !c.resolved && !c.outdated).length;
+  const fileCount = detail?.files.length ?? files.length;
 
   return (
     <div className={hidden ? "hidden" : embedded ? "flex min-h-0 min-w-0 flex-1 flex-col bg-bg" : "fixed inset-0 z-40 flex flex-col bg-bg pt-[38px]"}>
-      <div className="flex items-center gap-2 border-b border-edge px-5 py-2 font-sans text-[12px]">
-        {issue && (
-          <>
-            <span className="text-mut">{issue.key}</span>
-            <span className="text-dim">›</span>
-          </>
-        )}
-        <Icon name="branch" className={merged ? "text-accent" : closed ? "text-red" : "text-green"} />
-        <span className="truncate text-ink">
-          <span className="text-mut">#{pr.number}</span> {pr.title}
-        </span>
-        {detail && <Stat additions={detail.additions} deletions={detail.deletions} />}
-        {checks && (
-          <Icon
-            name={checks.tone === "pass" ? "checkSquare" : checks.tone === "fail" ? "xSquare" : "clock"}
-            className={toneColor[checks.tone]}
-            title={`Checks: ${checks.label}`}
-          />
-        )}
-        {detail?.reviewDecision && (
-          <span
-            className={`rounded px-1.5 text-[10px] ${
-              approved ? "bg-green/15 text-green" : "bg-orange/15 text-orange"
-            }`}
-          >
-            {detail.reviewDecision.toLowerCase().replace("_", " ")}
-          </span>
-        )}
-        {detail?.mergeable === "CONFLICTING" && (
-          <span className="rounded bg-red/15 px-1.5 text-[10px] text-red" title={`Conflicts with ${detail.baseRefName}`}>
-            merge conflicts
-          </span>
-        )}
-        <span className="relative ml-auto flex items-center gap-3 text-[11px] text-dim">
-          <button
-            onClick={() => setMenuOpen((o) => !o)}
-            title="More"
-            className={`rounded px-1 hover:text-ink ${menuOpen ? "bg-card2 text-ink" : ""}`}
-          >
-            <Icon name="dots" />
-          </button>
-          {!embedded && (
-            <button onClick={onClose} className="flex items-center gap-1 hover:text-ink">
-              esc <Icon name="x" size={11} />
-            </button>
-          )}
-          {menuOpen && (
-            <div
-              className="absolute right-0 top-full z-50 mt-1 w-[200px] rounded-md border border-edge2 bg-panel p-1 font-sans text-[12px] text-body shadow-lg"
-              onClick={() => setMenuOpen(false)}
-            >
-              <button
-                onClick={() => void navigator.clipboard.writeText(pr.url)}
-                className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left hover:bg-card2"
-              >
-                <Icon name="link" className="text-dim" /> Copy link
-              </button>
-              <button
-                onClick={() => window.open(pr.url)}
-                className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left hover:bg-card2"
-              >
-                <Icon name="external" className="text-dim" /> Open on GitHub
-              </button>
-              {issue && (
-                <button
-                  onClick={() => window.open(issue.url)}
-                  className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left hover:bg-card2"
-                >
-                  <Icon name="issue" className="text-dim" /> Open {issue.key}
-                </button>
-              )}
-            </div>
-          )}
-        </span>
-      </div>
-
-      <div className="relative flex items-center gap-1.5 border-b border-edge px-5 py-2 font-sans text-[12px]">
-        {(["overview", "diff"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`rounded-full px-3 py-1 ${
-              tab === t ? "bg-card2 text-ink" : "text-mut hover:text-ink"
-            }`}
-          >
-            {t === "overview" ? "Overview" : "Diff"}
-            {t === "diff" && openThreads > 0 && (
-              <span className="ml-1.5 text-[10px] text-orange">{openThreads}</span>
+      <div className="relative flex shrink-0 items-center gap-4 border-b border-edge px-6 py-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <h2 className="truncate text-[17px] font-semibold text-ink" title={pr.title}>
+            <span className="font-mono font-medium text-mut">#{pr.number}</span> {pr.title}
+          </h2>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px] text-mut">
+            {!embedded && issue && <span className="font-mono">{issue.key}</span>}
+            {(detail?.author || pr.author) && (
+              <span className="inline-flex items-center gap-1.5 text-soft">
+                <Avatar name={detail?.author || pr.author} />
+                {detail?.author || pr.author}
+              </span>
             )}
-          </button>
-        ))}
-        <button
-          onClick={() => setAgentOpen((o) => !o)}
-          className={`ml-1 flex items-center gap-1.5 rounded-full px-3 py-1 ${
-            agentOpen ? "bg-accent/15 text-accent" : "text-mut hover:text-ink"
-          }`}
-          title="Review assistant for this PR (a)"
-        >
-          <Icon name="sparkle" size={11} /> Assistant
-        </button>
-        <PrStackStrip repo={pr.repo} number={pr.number} title={pr.title} headRefName={detail?.headRefName} baseRefName={detail?.baseRefName} />
-        {actionError && <span className="ml-3 truncate text-[11px] text-red">{actionError}</span>}
+            {detail && (
+              <span className="font-mono" title={`${pr.repo}: ${detail.headRefName} → ${detail.baseRefName}`}>
+                {detail.headRefName} → {detail.baseRefName}
+              </span>
+            )}
+            {checks && detail && (
+              <span className="inline-flex items-center gap-1.5" title={`Checks: ${checks.label}`}>
+                <CheckDot tone={checks.tone} />
+                {checksLine(detail.checks)}
+              </span>
+            )}
+            {detail && <span className="font-mono"><Stat additions={detail.additions} deletions={detail.deletions} /></span>}
+            {detail?.reviewDecision && (
+              <span className={decisionTone[detail.reviewDecision] ?? "text-mut"}>
+                {detail.reviewDecision.toLowerCase().replace("_", " ")}
+              </span>
+            )}
+            {detail?.mergeable === "CONFLICTING" && (
+              <span className="text-red" title={`Conflicts with ${detail.baseRefName}`}>merge conflicts</span>
+            )}
+          </div>
+          {actionError && <div className="truncate text-[12px] text-red" title={actionError}>{actionError}</div>}
+        </div>
 
-        <span className="ml-auto flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 text-[13px]">
           {merged ? (
-            <span className="rounded-md bg-accent/15 px-3 py-1 text-accent">Merged</span>
+            <span className="inline-flex h-8 items-center rounded-md border border-edge2 px-3 text-soft">Merged</span>
           ) : closed ? (
-            <span className="rounded-md bg-red/15 px-3 py-1 text-red">Closed</span>
+            <span className="inline-flex h-8 items-center rounded-md border border-edge2 px-3 text-soft">Closed</span>
           ) : (
             <>
               {drafts.length > 0 && (
                 <button
                   onClick={() => void submitReview("COMMENT")}
                   disabled={busy !== undefined}
-                  className="rounded-md border border-edge2 px-2.5 py-1 text-body hover:border-edge3 disabled:opacity-40"
+                  className="h-8 rounded-md border border-edge2 px-3 text-soft hover:border-edge3 hover:text-ink disabled:opacity-40"
                 >
                   Send {drafts.length} comment{drafts.length > 1 ? "s" : ""}
                 </button>
@@ -417,55 +375,56 @@ export function PrScreen({ pr, issue, onClose, embedded = false, hidden = false,
               <button
                 onClick={() => setRejectOpen((o) => !o)}
                 disabled={busy !== undefined}
-                className="rounded-md border border-edge2 px-2.5 py-1 text-red hover:border-red disabled:opacity-40"
+                className="h-8 rounded-md border border-edge2 px-3 font-medium text-red hover:border-red/60 disabled:opacity-40"
               >
-                <Icon name="x" size={11} /> Request changes
+                Request changes
               </button>
               <button
                 onClick={() => void submitReview("APPROVE")}
                 disabled={busy !== undefined || approved}
-                className="rounded-md border border-edge2 px-2.5 py-1 text-green hover:border-green disabled:opacity-40"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-edge2 bg-card2 px-3.5 font-semibold text-ink hover:border-edge3 disabled:opacity-60"
               >
                 {busy === "review" ? (
                   "Sending…"
+                ) : approved ? (
+                  <>
+                    <Icon name="check" size={12} className="text-green" /> Approved
+                  </>
                 ) : (
                   <>
-                    <Icon name="check" size={11} /> {approved ? "Approved" : "Approve"}
-                    {!approved && drafts.length > 0 && ` +${drafts.length}`}
+                    Approve
+                    {drafts.length > 0 && ` +${drafts.length}`}
                   </>
                 )}
               </button>
               {autoMerge && (
                 <span
-                  className="rounded-md bg-accent/15 px-2.5 py-1 text-accent"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-edge2 px-3 text-[12px] text-soft"
                   title={`Auto-merge enabled by ${autoMerge.by}`}
                 >
                   <Icon name="play" size={10} /> Auto-merge on
                 </span>
               )}
+              {/* Blocked reads as outlined, but the chevron stays live for the reason and auto-merge. */}
               <span
-                className={`flex overflow-hidden rounded-md text-bg ${
-                  blocker ? "bg-accent/40" : "bg-accent"
+                className={`flex h-8 overflow-hidden rounded-md font-semibold ${
+                  blocker ? "border border-edge2 text-mut" : "bg-green text-bg"
                 }`}
                 title={blocker}
               >
                 <button
                   onClick={() => void merge()}
                   disabled={busy !== undefined || blocker !== undefined}
-                  className="px-3 py-1 font-semibold hover:bg-accent/90 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                  className={`px-3.5 ${blocker ? "cursor-not-allowed" : "hover:bg-ink/15"} disabled:cursor-not-allowed`}
                 >
-                  {busy === "merge" ? (
-                    "Merging…"
-                  ) : (
-                    <>
-                      <Icon name="branch" size={12} /> {mergeLabel[chosenMethod]}
-                    </>
-                  )}
+                  {busy === "merge" ? "Merging…" : mergeLabel[chosenMethod]}
                 </button>
                 <button
                   onClick={() => setMergeOpen((o) => !o)}
                   disabled={busy !== undefined}
-                  className="border-l border-bg/20 px-2 py-1 hover:bg-accent/90"
+                  className={`flex items-center border-l px-2 ${
+                    blocker ? "border-edge2 hover:bg-card2 hover:text-ink" : "border-bg/20 hover:bg-ink/15"
+                  }`}
                   title="Merge options"
                 >
                   <Icon name="chevronDown" size={11} />
@@ -473,11 +432,52 @@ export function PrScreen({ pr, issue, onClose, embedded = false, hidden = false,
               </span>
             </>
           )}
-        </span>
+          <span className="relative flex items-center gap-2">
+            <button
+              onClick={() => setMenuOpen((o) => !o)}
+              title="More"
+              className={`flex h-8 w-8 items-center justify-center rounded-md text-mut hover:bg-card2 hover:text-ink ${menuOpen ? "bg-card2 text-ink" : ""}`}
+            >
+              <Icon name="dots" />
+            </button>
+            {!embedded && (
+              <button onClick={onClose} className="flex items-center gap-1 text-[12px] text-mut hover:text-ink">
+                esc <Icon name="x" size={11} />
+              </button>
+            )}
+            {menuOpen && (
+              <div
+                className="absolute right-0 top-full z-50 mt-1 w-[200px] rounded-md border border-edge2 bg-panel p-1 text-[12px] text-body shadow-lg"
+                onClick={() => setMenuOpen(false)}
+              >
+                <button
+                  onClick={() => void navigator.clipboard.writeText(pr.url)}
+                  className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left hover:bg-card2"
+                >
+                  <Icon name="link" className="text-mut" /> Copy link
+                </button>
+                <button
+                  onClick={() => window.open(pr.url)}
+                  className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left hover:bg-card2"
+                >
+                  <Icon name="external" className="text-mut" /> Open on GitHub
+                </button>
+                {issue && (
+                  <button
+                    onClick={() => window.open(issue.url)}
+                    className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left hover:bg-card2"
+                  >
+                    <Icon name="issue" className="text-mut" /> Open {issue.key}
+                  </button>
+                )}
+              </div>
+            )}
+          </span>
+        </div>
 
         {mergeOpen && (
-          <div className="absolute right-5 top-full z-50 mt-1 w-[260px] rounded-md border border-edge2 bg-panel p-1 shadow-lg">
-            {blocker && <div className="px-2.5 py-1.5 text-[11px] text-orange">{blocker}</div>}
+          <div className="absolute right-6 top-full z-50 -mt-2 w-[260px] rounded-md border border-edge2 bg-panel p-1 text-[12px] shadow-lg">
+            {blocker && <div className="px-2.5 py-1.5 text-mut">{blocker}</div>}
             {methods.map((m) => (
               <button
                 key={m}
@@ -496,7 +496,7 @@ export function PrScreen({ pr, issue, onClose, embedded = false, hidden = false,
             {!autoMerge && (
               <button
                 onClick={() => void enableAutoMerge()}
-                className="mt-1 block w-full rounded border-t border-edge px-2.5 py-1.5 text-left text-accent hover:bg-card2"
+                className="mt-1 block w-full rounded border-t border-edge px-2.5 py-1.5 text-left text-soft hover:bg-card2 hover:text-ink"
                 title="GitHub merges on its own once reviews and checks pass"
               >
                 <Icon name="play" size={10} className="mr-1" />
@@ -506,8 +506,8 @@ export function PrScreen({ pr, issue, onClose, embedded = false, hidden = false,
           </div>
         )}
         {rejectOpen && (
-          <div className="absolute right-5 top-full z-50 mt-1 w-[380px] rounded-md border border-edge2 bg-panel p-3 shadow-lg">
-            <div className="pb-1.5 text-[10px] text-dim">Say what needs to change.</div>
+          <div className="absolute right-6 top-full z-50 -mt-2 w-[380px] rounded-md border border-edge2 bg-panel p-3 shadow-lg">
+            <div className="pb-1.5 text-[12px] text-mut">Say what needs to change.</div>
             <textarea
               ref={rejectRef}
               rows={3}
@@ -516,7 +516,7 @@ export function PrScreen({ pr, issue, onClose, embedded = false, hidden = false,
                 e.stopPropagation();
                 if (e.key === "Escape") setRejectOpen(false);
               }}
-              className="w-full resize-y rounded border border-edge2 bg-bg px-2 py-1.5 font-sans text-[11px] text-body outline-none focus:border-red"
+              className="w-full resize-y rounded border border-edge2 bg-bg px-2 py-1.5 text-[13px] text-soft outline-none focus:border-red"
             />
             <button
               onClick={() => {
@@ -524,7 +524,7 @@ export function PrScreen({ pr, issue, onClose, embedded = false, hidden = false,
                 if (body) void submitReview("REQUEST_CHANGES", body);
               }}
               disabled={busy !== undefined}
-              className="mt-1.5 rounded-md border border-red/40 px-2.5 py-1 text-[11px] text-red hover:bg-red/10 disabled:opacity-40"
+              className="mt-1.5 h-7 rounded-md border border-red/40 px-2.5 text-[12px] text-red hover:bg-red/10 disabled:opacity-40"
             >
               Request changes{drafts.length > 0 ? ` +${drafts.length} drafts` : ""}
             </button>
@@ -532,7 +532,40 @@ export function PrScreen({ pr, issue, onClose, embedded = false, hidden = false,
         )}
       </div>
 
-      <PrAgentStrip pr={pr} detail={detail} ticketKey={issue?.key} openThreads={openThreads} cwd={checkoutCwd} draft={agentDraft} />
+      <PrAgentBar pr={pr} detail={detail} ticketKey={issue?.key} linked={linked} openThreads={openThreads} cwd={checkoutCwd} draft={agentDraft}>
+        <div role="tablist" aria-label="Pull request views" className="flex self-stretch">
+          {(["overview", "diff"] as const).map((t) => (
+            <button
+              key={t}
+              role="tab"
+              aria-selected={tab === t}
+              onClick={() => setTab(t)}
+              className={`flex items-center gap-1.5 border-b-2 px-2.5 text-[13px] ${
+                tab === t ? "border-ink font-medium text-ink" : "border-transparent text-body hover:text-ink"
+              }`}
+            >
+              {t === "overview" ? "Overview" : "Diff"}
+              {t === "diff" && fileCount > 0 && <span className="font-mono text-[12px] font-normal text-mut">{fileCount}</span>}
+              {t === "diff" && openThreads > 0 && (
+                <span title={`${openThreads} open thread${openThreads === 1 ? "" : "s"}`} className="inline-flex items-center gap-0.5 font-mono text-[11px] font-normal text-mut">
+                  <Icon name="comment" size={10} />{openThreads}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setAgentOpen((o) => !o)}
+          aria-pressed={agentOpen}
+          className={`flex items-center gap-1.5 self-stretch border-b-2 px-2.5 text-[13px] ${
+            agentOpen ? "border-accent font-medium text-ink" : "border-transparent text-body hover:text-ink"
+          }`}
+          title="Review assistant for this PR (a)"
+        >
+          <Icon name="sparkle" size={12} className="text-accent" /> Assistant
+        </button>
+        <span className="ml-2 flex shrink-0"><PrStackStrip repo={pr.repo} number={pr.number} title={pr.title} headRefName={detail?.headRefName} baseRefName={detail?.baseRefName} /></span>
+      </PrAgentBar>
 
       <div className="relative flex min-h-0 flex-1 flex-col">
         {tab === "overview" ? (
@@ -548,6 +581,7 @@ export function PrScreen({ pr, issue, onClose, embedded = false, hidden = false,
             onOpenFile={openFile}
             threadActions={threadActions}
             onComment={addComment}
+            paused={paused}
           />
         ) : (
           <PrDiffTab

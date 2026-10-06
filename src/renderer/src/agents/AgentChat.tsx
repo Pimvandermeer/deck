@@ -55,7 +55,7 @@ export function AgentChat({ sessions, compact = false, headline }: { sessions: A
   const gutter = compact ? "px-4" : "px-8";
 
   const composer = (
-    <div className={`rounded-xl border border-edge2 bg-card ${empty ? "shadow-[0_0_0_1px_rgba(167,139,250,0.08)]" : ""}`}>
+    <div className="rounded-xl border border-edge2 bg-bg focus-within:border-edge3">
       {replyTo && (
         <div className="flex items-center gap-1.5 px-4 pt-3 text-[11px] text-accent">
           <span className="truncate">replying to {label(replyTo)}</span>
@@ -71,20 +71,20 @@ export function AgentChat({ sessions, compact = false, headline }: { sessions: A
         onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }}
         placeholder={replyTo ? `answer ${label(replyTo)}…` : busy ? "deck is working…" : "Ask deck…"}
         disabled={busy && !replyTo}
-        className="w-full resize-none bg-transparent px-4 pt-3.5 text-[13px] text-ink placeholder:text-dim focus:outline-none disabled:opacity-50"
+        className="w-full resize-none bg-transparent px-4 pt-3.5 text-[14px] leading-normal text-ink placeholder:text-mut focus:outline-none disabled:opacity-50"
       />
       <div className="flex items-center gap-2 px-3 pb-2.5">
         <fieldset disabled={busy} className="flex items-center gap-2">
           <AgentSelect value={agent} onChange={chooseAgent} />
           {agent === "claude" && (
             <select aria-label="Model" title="Model for deck's agent. Sonnet for everyday questions; pick a bigger model to plan an epic." value={model} onChange={(e) => setModel(e.target.value)}
-              className="rounded-md border border-edge2 bg-card px-2 py-1 text-[11px] text-body outline-none">
+              className="h-7 rounded-md border border-edge2 bg-card px-2 text-[12px] text-soft outline-none">
               {askModels.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
             </select>
           )}
         </fieldset>
         <button aria-label="Send" title="Send (Enter)" disabled={(busy && !replyTo) || !draft.trim()} onClick={submit}
-          className="ml-auto flex h-7 w-7 items-center justify-center rounded-full bg-accent text-bg disabled:opacity-30">↑</button>
+          className="ml-auto flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-accent text-bg disabled:opacity-30">↑</button>
       </div>
     </div>
   );
@@ -95,7 +95,7 @@ export function AgentChat({ sessions, compact = false, headline }: { sessions: A
         <div className="w-full max-w-[760px]">
           {!compact && headline && <div className="mb-6">{headline}</div>}
           {composer}
-          <div className="mt-5 text-[11px] text-mut">Get started with some examples</div>
+          <div className="mt-5 text-[11px] font-semibold tracking-[0.06em] text-mut">Get started with some examples</div>
           {compact ? (
             <div className="mt-2 flex flex-col">
               {EXAMPLES.map((e) => (

@@ -68,7 +68,7 @@ export function SessionSweep({ rows, onClose }: { rows: SweepRow[]; onClose: () 
     {done.length > 1 && <div className="flex items-center gap-2 border-b border-edge px-3 py-2">
       <span className="min-w-0 flex-1 text-[11px] text-mut">{done.length} merged and clean</span>
       <button onClick={() => done.forEach((row) => closeTab(row.tab.termId))}
-        className="shrink-0 rounded-md border border-edge3 px-2 py-1 text-[10px] text-soft hover:bg-card">
+        className="shrink-0 rounded-md border border-edge3 px-2 py-1 text-[11px] text-soft hover:bg-card">
         Close all done
       </button>
     </div>}
@@ -85,17 +85,17 @@ export function SessionSweep({ rows, onClose }: { rows: SweepRow[]; onClose: () 
             <SessionIcon agent={session.agent} status={session.status} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[12px] text-soft" title={title}>{title}</span>
-              <span className="mt-0.5 block truncate text-[10px] text-dim">{agentLabels[session.agent]} · {statusLabels[session.status]}</span>
+              <span className="mt-0.5 block truncate text-[11px] text-dim">{agentLabels[session.agent]} · {statusLabels[session.status]}</span>
             </span>
           </div>
-          <div className="mt-1.5 flex flex-col gap-0.5 pl-7 text-[10px]">
+          <div className="mt-1.5 flex flex-col gap-0.5 pl-7 text-[11px]">
             {!f && <span className="text-dim">checking pull requests…</span>}
             {f?.prs.map((pr) => <span key={pr.url} className="flex min-w-0 items-center gap-1.5">
               <span className={`shrink-0 ${pr.state === "MERGED" ? "text-dim" : "text-orange"}`}>{prLabel(pr)}</span>
               <a href={pr.url} target="_blank" rel="noreferrer" className="min-w-0 truncate text-soft hover:underline" title={pr.url}>#{pr.number} {pr.title}</a>
             </span>)}
           </div>
-          {f && verdict && <div className="mt-1.5 flex items-center gap-2 pl-7 text-[10px]">
+          {f && verdict && <div className="mt-1.5 flex items-center gap-2 pl-7 text-[11px]">
             <span className={verdict === "done" ? "text-dim" : "text-orange"}>{sweepLabel(verdict, f)}</span>
             <button aria-label={`Close session ${title}`} onClick={() => closeTab(tab.termId)}
               className="ml-auto shrink-0 rounded border border-edge3 px-1.5 py-0.5 text-soft hover:bg-card">

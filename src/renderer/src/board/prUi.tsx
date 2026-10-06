@@ -24,7 +24,7 @@ export function ExtBadge({ path }: { path: string }) {
   const ext = path.includes(".") ? path.split(".").pop()!.toLowerCase() : "";
   return (
     <span
-      className={`inline-block w-7 shrink-0 rounded bg-card2 px-1 text-center text-[8px] font-bold leading-4 ${
+      className={`inline-block w-8 shrink-0 rounded bg-card2 px-1 text-center font-mono text-[11px] font-semibold leading-4 ${
         extColors[ext] ?? "text-dim"
       }`}
     >
@@ -70,7 +70,7 @@ export const checkTone = (state: string): CheckTone =>
 export const toneColor: Record<CheckTone, string> = {
   pass: "text-green",
   fail: "text-red",
-  pending: "text-orange",
+  pending: "text-mut",
   skip: "text-dim",
 };
 
@@ -128,27 +128,27 @@ export const shellQuote = (s: string): string => `'${s.replace(/'/g, `'\\''`)}'`
 export interface Move { label: string; tone: string; strong?: boolean; hint: string }
 
 export const tones = {
-  blue: "bg-blue/10 text-blue",
-  orange: "bg-orange/10 text-orange",
-  green: "bg-green/10 text-green",
-  accent: "bg-accent/10 text-accent",
-  dim: "bg-card2 text-mut",
+  blue: "bg-blue/15 text-blue",
+  orange: "bg-orange/15 text-orange",
+  green: "bg-green/15 text-green",
+  accent: "bg-accent/15 text-accent",
+  dim: "bg-card2 text-body",
 };
 
-const stanceTone: Record<Stance, string> = { you: tones.orange, them: tones.blue, others: tones.dim, done: tones.accent };
+// Merged and closed work is nobody's move any more, so it reads as neutral.
+const stanceTone: Record<Stance, string> = { you: tones.orange, them: tones.blue, others: tones.dim, done: tones.dim };
 
 /** Whose move it is on one PR, from the user's side of it. */
 export function moveOf(pr: ActivityPr, viewer: string, requested: Set<string>): Move & { state: BallState } {
   const state = ballFrom(pr, viewer, requested.has(prKey(pr)));
   const since = `since ${relativeTime(state.since)}`;
-  if (pr.state === "MERGED") return { state, label: "Merged", tone: tones.accent, hint: pr.mergedAt ? `Merged ${relativeTime(pr.mergedAt)}` : "Merged" };
+  if (pr.state === "MERGED") return { state, label: "Merged", tone: tones.dim, hint: pr.mergedAt ? `Merged ${relativeTime(pr.mergedAt)}` : "Merged" };
   if (pr.state === "CLOSED") return { state, label: "Closed", tone: tones.dim, hint: "Closed without merging" };
   const label = ballText(state);
-  const tone = state.stance === "you" && state.action === "merge" ? tones.green : stanceTone[state.stance];
-  return { state, label, tone, strong: state.stance === "you", hint: `${label} · ${since}` };
+  return { state, label, tone: stanceTone[state.stance], strong: state.stance === "you", hint: `${label} · ${since}` };
 }
 
 /** Whose move it is as a pill, the same on the activity page and the reviews rail. */
 export function MovePill({ move }: { move: Move }) {
-  return <span title={move.hint} className={`inline-flex h-[18px] max-w-full shrink-0 items-center truncate rounded-full px-2 text-[10px] ${move.tone} ${move.strong ? "font-bold" : ""}`}>{move.label}</span>;
+  return <span title={move.hint} className={`inline-flex h-5 max-w-full shrink-0 items-center truncate rounded-full px-2 text-[11px] ${move.tone} ${move.strong ? "font-semibold" : ""}`}>{move.label}</span>;
 }

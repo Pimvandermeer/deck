@@ -39,16 +39,16 @@ export function SessionArchive({ sessions, onResume, onClose }: {
     </div>
     <div className="min-h-0 flex-1 overflow-y-auto pb-2">
       {groups.map((group) => <section key={group.label} aria-label={group.label}>
-        <div className="px-4 pb-1 pt-4 text-[10px] tracking-widest text-dim">{group.label.toUpperCase()}</div>
+        <div className="px-4 pb-1 pt-4 text-[11px] tracking-widest text-dim">{group.label.toUpperCase()}</div>
         {group.sessions.map((session) => <button key={session.session_id} onClick={() => onResume(session)}
           title={`${session.title || session.cwd} · ${statusLabels[session.status]}`}
           className="flex w-full min-w-0 items-center gap-2.5 px-3 py-2 text-left hover:bg-card">
           <SessionIcon agent={session.agent} status={session.status} />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-xs text-body">{session.title || session.cwd.split("/").pop()}</span>
-            <span className="block truncate text-[10px] text-dim">{session.issue_key ? `${session.issue_key} · ` : ""}{agentLabels[session.agent]} · {shortPath(session.cwd)}</span>
+            <span className="block truncate text-[11px] text-dim">{session.issue_key ? `${session.issue_key} · ` : ""}{agentLabels[session.agent]} · {shortPath(session.cwd)}</span>
           </span>
-          <span className="shrink-0 self-start pt-1 text-[10px] text-dim">{new Date(session.updated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+          <span className="shrink-0 self-start pt-1 text-[11px] text-dim">{new Date(session.updated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
         </button>)}
       </section>)}
       {!groups.length && <div className="p-4 text-xs text-dim">{query.trim() ? "No matching sessions" : "No sessions yet"}</div>}

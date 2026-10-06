@@ -9,6 +9,7 @@ import { prKey } from "../../../shared/prs.js";
 import { agentBall, looseWaitingAgents, rowActive, rowBall, useActivityRows, type RowBall } from "../lib/useActivity.js";
 import { focusTerminal, openPullRequest } from "../lib/bus.js";
 import { StatusMark, statusLabels, statusTones } from "../chrome/SessionIcon.js";
+import { HeaderButton, PageHeader } from "../chrome/PageHeader.js";
 import { useAgentLinks } from "../lib/useAgentLinks.js";
 import { AgentChip, ContinueButton, continuation, type Continuation } from "./AgentLinks.js";
 import { usePrInbox } from "../lib/useInbox.js";
@@ -38,7 +39,8 @@ const save = (key: string, value: unknown) => {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* a preference only */ }
 };
 
-const checkTone: Record<string, string> = { SUCCESS: "text-green", FAILURE: "text-red", ERROR: "text-red", PENDING: "text-orange" };
+// A ring while checks run, filled once they settle.
+const checkDot: Record<string, string> = { SUCCESS: "bg-green", FAILURE: "bg-red", ERROR: "bg-red", PENDING: "border-[1.5px] border-mut" };
 const checkWords: Record<string, string> = { SUCCESS: "checks passed", FAILURE: "checks failing", ERROR: "checks errored", PENDING: "checks running", EXPECTED: "checks expected" };
 const reviewWords: Record<string, { text: string; tone: string }> = {
   APPROVED: { text: "approved", tone: "text-green" },
@@ -55,6 +57,13 @@ const actionPlural: Record<string, [string, string]> = {
   "finish draft": ["draft", "drafts"], "answer agent": ["agent waiting", "agents waiting"], "move ticket": ["ticket to move", "tickets to move"],
 };
 
+// Fixed columns so keys, statuses and waits line up from row to row; the
+// assignee is the first to go when the list is narrow.
+const rowGrid = "grid grid-cols-[10px_84px_minmax(0,1fr)_auto_104px_52px] items-center gap-x-3 gap-y-2 @[800px]:grid-cols-[10px_84px_minmax(0,1fr)_auto_104px_104px_52px]";
+const assigneeCell = "hidden truncate text-[12px] @[800px]:block";
+const checkMark = (pr: ActivityPr) => <span title={checkWords[pr.checks] ?? "no checks"} className={`h-[7px] w-[7px] shrink-0 rounded-full ${checkDot[pr.checks] ?? "bg-edge3"}`} />;
+const dotted = (items: ReactNode[]) => items.flatMap((item, i) => (i ? [<span key={`dot${i}`} aria-hidden className="text-dim">·</span>, item] : [item]));
+
 /** The three numbers that answer "who is waiting on whom", each a filter. */
 function BallOverview({ summary, stance, person, onStance, onPerson }: {
   summary: BallSummary; stance?: Stance; person?: string;
@@ -63,44 +72,56 @@ function BallOverview({ summary, stance, person, onStance, onPerson }: {
   const tile = (key: Stance, title: string, count: number, tone: string, detail: ReactNode) => (
     <div role="button" tabIndex={0} aria-pressed={stance === key} onClick={() => { onPerson(undefined); onStance(stance === key ? undefined : key); }}
       onKeyDown={(e) => { if (e.key === "Enter") onStance(stance === key ? undefined : key); }}
-      className={`flex min-w-[220px] flex-1 cursor-pointer flex-col gap-1 rounded-lg border px-4 py-3 ${stance === key ? "border-accent/60 bg-card" : "border-edge hover:border-edge2 hover:bg-card"}`}>
-      <span className="flex items-baseline gap-2">
-        <span className={`text-[20px] font-bold leading-none ${count > 0 ? tone : "text-dim"}`}>{count}</span>
-        <span className="text-[10px] tracking-widest text-dim">{title.toUpperCase()}</span>
+      className={`flex min-w-0 cursor-pointer flex-col gap-1.5 px-[18px] py-3.5 ${key !== "you" ? "border-t border-edge @[620px]:border-l @[620px]:border-t-0" : ""} ${stance === key ? "bg-card" : "hover:bg-card/60"}`}>
+      <span className="flex items-baseline gap-2.5">
+        <span className={`font-mono text-[22px] font-semibold leading-none ${count > 0 ? tone : "text-dim"}`}>{count}</span>
+        <span className="text-[13px] font-semibold text-ink">{title}</span>
       </span>
-      <span className="flex min-h-[18px] flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-mut">{detail}</span>
+      <span className="flex min-h-5 flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] text-mut">{detail}</span>
     </div>
   );
   return (
-    <div className="mb-5 flex flex-wrap gap-3">
+    <div role="group" aria-label="Whose move summary" className="mb-6 grid overflow-hidden rounded-xl border border-edge bg-panel @[620px]:grid-cols-3">
       {tile("you", "Waiting on you", summary.you, "text-orange",
-        summary.yourActions.length ? summary.yourActions.map(([action, n]) => <span key={action}>{n} {actionPlural[action]?.[n === 1 ? 0 : 1] ?? action}</span>) : "nothing — you are clear")}
+        summary.yourActions.length ? dotted(summary.yourActions.map(([action, n]) => <span key={action}>{n} {actionPlural[action]?.[n === 1 ? 0 : 1] ?? action}</span>)) : "nothing — you are clear")}
       {tile("them", "You're waiting on", summary.them, "text-blue",
         summary.waitingOn.length ? summary.waitingOn.slice(0, 5).map(([who, n]) => (
           <button key={who} onClick={(e) => { e.stopPropagation(); onStance("them"); onPerson(person === who ? undefined : who); }}
-            className={`rounded-full border px-1.5 leading-[16px] ${person === who ? "border-blue/60 bg-blue/10 text-blue" : "border-edge2 hover:border-edge3 hover:text-ink"}`}>
-            {who === "reviewers" ? "any reviewer" : who} <span className="text-dim">{n}</span>
+            className={`inline-flex h-5 items-center gap-1 rounded-full border px-2 ${person === who ? "border-blue/60 bg-blue/15 text-blue" : "border-edge2 text-soft hover:border-edge3 hover:text-ink"}`}>
+            {who === "reviewers" ? "any reviewer" : who} <span className="font-mono text-mut">{n}</span>
           </button>
         )) : "nobody")}
       {tile("others", "Between others", summary.others, "text-soft",
-        summary.othersActions.length ? summary.othersActions.map(([action, n]) => <span key={action}>{n} {action === "review" ? "open for review" : actionPlural[action]?.[n === 1 ? 0 : 1] ?? action}</span>) : "—")}
+        summary.othersActions.length ? dotted(summary.othersActions.map(([action, n]) => <span key={action}>{n} {action === "review" ? "open for review" : actionPlural[action]?.[n === 1 ? 0 : 1] ?? action}</span>)) : "—")}
     </div>
   );
 }
 
-function Section({ title, count, tone = "text-dim", collapsed, onToggle, children }: {
-  title: string; count: number; tone?: string; collapsed?: boolean; onToggle?: () => void; children: ReactNode;
+function Section({ title, count, tone = "text-body", dot, caption, collapsed, onToggle, children }: {
+  title: string; count: number; tone?: string; dot?: string; caption?: string; collapsed?: boolean; onToggle?: () => void; children: ReactNode;
 }) {
   if (count === 0) return null;
+  const label = title.toUpperCase();
+  const number = <span className="font-mono font-normal text-mut">{count}</span>;
+  if (onToggle && collapsed) return (
+    <section aria-label={title} className="mb-2">
+      <button onClick={onToggle} aria-expanded={false}
+        className={`flex h-10 w-full items-center gap-2 rounded-[10px] border border-edge px-4 text-left text-[11px] font-semibold tracking-[0.06em] hover:border-edge2 hover:bg-panel ${tone}`}>
+        <Icon name="chevronRight" size={12} />{label}{number}
+      </button>
+    </section>
+  );
   return (
     <section aria-label={title} className="mb-6">
-      <h3 className={`sticky top-0 z-10 flex items-center gap-2 bg-bg py-2 text-[10px] tracking-widest ${tone}`}>
+      <h3 className={`sticky top-0 z-10 flex items-center gap-2 bg-bg px-1 py-2 text-[11px] font-semibold tracking-[0.06em] ${tone}`}>
+        {dot && <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />}
         {onToggle
-          ? <button onClick={onToggle} className="flex items-center gap-1.5 hover:text-ink"><Icon name={collapsed ? "chevronRight" : "chevronDown"} size={10} />{title.toUpperCase()}</button>
-          : title.toUpperCase()}
-        <span className="text-mut">{count}</span>
+          ? <button onClick={onToggle} aria-expanded className="flex items-center gap-1.5 hover:text-ink"><Icon name="chevronDown" size={12} />{label}</button>
+          : label}
+        {number}
+        {caption && <span className="ml-auto pr-3 font-normal tracking-normal text-mut">{caption}</span>}
       </h3>
-      {!collapsed && <div className="overflow-hidden rounded-lg border border-edge">{children}</div>}
+      <div className="overflow-hidden rounded-xl border border-edge bg-panel/50">{children}</div>
     </section>
   );
 }
@@ -227,59 +248,54 @@ export function ActivityView() {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-edge px-6 py-3">
-        <span className="font-bold text-ink">Activity</span>
-        <span className="text-[11px] text-dim">
-          {!loaded ? "waiting for the board and GitHub…" : unread > 0 ? <><span className="text-accent">{unread} new</span> since you last looked</> : "nothing new since you last looked"}
-        </span>
-        <span className="ml-auto flex items-center gap-4 text-[11px] text-dim">
-          {activity && <span title="When GitHub was last asked">PRs {relativeTime(new Date(activity.at).toISOString())}</span>}
-          <button disabled={unread === 0} onClick={markAll} className="hover:text-ink disabled:opacity-30">mark all seen</button>
-          <button onClick={() => void refresh()} className="hover:text-ink">{refreshing ? "refreshing…" : "↻ refresh"}</button>
-        </span>
-      </div>
-      <div className="flex flex-wrap items-center gap-2 border-b border-edge px-6 py-2 font-sans text-[11px]">
-        <div role="group" aria-label="Show" className="flex rounded-md border border-edge2 p-0.5">
+      <PageHeader title="Activity"
+        sub={!loaded ? "waiting for the board and GitHub…" : unread > 0 ? <span><span className="font-semibold text-ink">{unread} new</span> since you looked</span> : "nothing new since you looked"}>
+        {activity && <span title="When GitHub was last asked" className="mr-1.5 font-mono text-[11px] text-mut">PRs {relativeTime(new Date(activity.at).toISOString())}</span>}
+        <HeaderButton disabled={unread === 0} onClick={markAll}>Mark all seen</HeaderButton>
+        <HeaderButton onClick={() => void refresh()}>{refreshing ? "Refreshing…" : "↻ Refresh"}</HeaderButton>
+      </PageHeader>
+      <div className="flex flex-wrap items-center gap-2.5 border-b border-edge px-6 py-2.5 text-[12px]">
+        <div role="group" aria-label="Show" className="flex rounded-lg border border-edge bg-panel p-0.5">
           {(["all", "mine", "agents"] as const).filter((f) => f !== "mine" || board?.myAccountId || viewer).map((f) => (
             <button key={f} onClick={() => setFilter(f)} aria-pressed={filter === f}
-              className={`flex items-center gap-1.5 rounded px-2.5 py-0.5 ${filter === f ? "bg-card2 text-ink" : "text-dim hover:text-ink"}`}>
-              {f === "all" ? "All" : f === "mine" ? "Mine" : "With agent"}<span className="text-mut">{counts[f]}</span>
+              className={`flex h-[26px] items-center gap-1.5 rounded-md px-2.5 ${filter === f ? "bg-card2 font-medium text-ink" : "text-body hover:text-ink"}`}>
+              {f === "all" ? "All" : f === "mine" ? "Mine" : "With agent"}<span className="font-mono font-normal text-mut">{counts[f]}</span>
             </button>
           ))}
         </div>
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter tickets and PRs" aria-label="Filter tickets and pull requests"
-          className="w-[220px] rounded-md border border-edge2 bg-card px-2 py-1 text-body placeholder:text-dim focus:border-accent focus:outline-none" />
-        <div role="group" aria-label="Group by" className="ml-auto flex items-center gap-1.5 text-dim">
-          group by
-          <div className="flex rounded-md border border-edge2 p-0.5">
-            {(["ball", "news"] as const).map((g) => (
-              <button key={g} onClick={() => { setGroupBy(g); save(GROUP_KEY, g); }} aria-pressed={groupBy === g}
-                className={`rounded px-2.5 py-0.5 ${groupBy === g ? "bg-card2 text-ink" : "hover:text-ink"}`}>{g === "ball" ? "whose move" : "what's new"}</button>
-            ))}
-          </div>
+        <label className="flex h-[30px] w-[240px] items-center gap-2 rounded-lg border border-edge bg-panel px-2.5 text-mut focus-within:border-accent/60">
+          <Icon name="search" size={13} />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter tickets and PRs" aria-label="Filter tickets and pull requests"
+            className="min-w-0 flex-1 bg-transparent text-soft placeholder:text-mut focus:outline-none" />
+        </label>
+        <div role="group" aria-label="Group by" className="ml-auto flex rounded-lg border border-edge bg-panel p-0.5">
+          {(["ball", "news"] as const).map((g) => (
+            <button key={g} onClick={() => { setGroupBy(g); save(GROUP_KEY, g); }} aria-pressed={groupBy === g}
+              className={`h-[26px] rounded-md px-2.5 ${groupBy === g ? "bg-card2 font-medium text-ink" : "text-body hover:text-ink"}`}>{g === "ball" ? "Whose move" : "What's new"}</button>
+          ))}
         </div>
-        <label className="flex cursor-pointer items-center gap-1.5 text-dim hover:text-ink">
-          <input type="checkbox" checked={showDone} onChange={(e) => { setShowDone(e.target.checked); save(DONE_KEY, e.target.checked); }} className="accent-[var(--color-accent)]" />
-          show done
+        <label className="flex cursor-pointer items-center gap-1.5 text-body hover:text-ink">
+          <input type="checkbox" checked={showDone} onChange={(e) => { setShowDone(e.target.checked); save(DONE_KEY, e.target.checked); }} className="m-0 accent-[var(--color-accent)]" />
+          Show done
         </label>
       </div>
       <div className="flex min-h-0 flex-1">
-        <div aria-label="Ticket activity" className="min-h-0 min-w-0 flex-1 overflow-y-auto font-sans text-[12px]">
-          <div className="@container mx-auto w-full max-w-[1100px] px-6 pb-6 pt-4">
+        <div aria-label="Ticket activity" className="min-h-0 min-w-0 flex-1 overflow-y-auto text-[13px]">
+          <div className="@container mx-auto w-full max-w-[1120px] px-6 pb-10 pt-5">
             {loaded && <BallOverview summary={summary} stance={stance} person={person}
               onStance={(next) => { setStance(next); if (next && groupBy !== "ball") { setGroupBy("ball"); save(GROUP_KEY, "ball"); } }} onPerson={setPerson} />}
             {(stance || person) && (
-              <div className="-mt-2 mb-4 flex items-center gap-2 text-[11px] text-dim">
+              <div className="-mt-3 mb-4 flex items-center gap-2 text-[12px] text-mut">
                 showing {stance === "you" ? "what waits on you" : stance === "them" ? `what you are waiting on${person ? ` from ${person === "reviewers" ? "any reviewer" : person}` : ""}` : "what is between others"}
-                <button onClick={() => { setStance(undefined); setPerson(undefined); }} className="rounded border border-edge2 px-1.5 hover:text-ink">clear ×</button>
+                <button onClick={() => { setStance(undefined); setPerson(undefined); }} className="rounded-md border border-edge2 px-2 text-soft hover:border-edge3 hover:text-ink">clear ×</button>
               </div>
             )}
             {groupBy === "ball" ? <>
-            {showBall("you") && <Section title="Waiting on you" count={ballSections.you.length + loose.length} tone="text-orange">
+            {showBall("you") && <Section title="Waiting on you" count={ballSections.you.length + loose.length} tone="text-orange" dot="bg-orange" caption="waiting">
               {loose.map((link) => <AgentRow key={link.sessionId} link={link} />)}
               {ballSections.you.map((row) => <TicketRow key={row.issue.key} row={row} ball={balls.get(row.issue.key)} {...rowProps} />)}
             </Section>}
-            {showBall("them") && <Section title="You're waiting on" count={ballSections.them.length} tone="text-blue">
+            {showBall("them") && <Section title="You're waiting on" count={ballSections.them.length} tone="text-blue" dot="bg-blue">
               {ballSections.them.map((row) => <TicketRow key={row.issue.key} row={row} ball={balls.get(row.issue.key)} {...rowProps} />)}
             </Section>}
             {showBall("others") && <Section title="Between others" count={ballSections.others.length} collapsed={collapsed.includes("Between others")} onToggle={() => toggle("Between others")}>
@@ -296,10 +312,10 @@ export function ActivityView() {
               </Section>
             )}
             </> : <>
-            <Section title="New since you looked" count={sections.fresh.length} tone="text-accent">
+            <Section title="New since you looked" count={sections.fresh.length} tone="text-ink" dot="bg-ink">
               {sections.fresh.map((row) => <TicketRow key={row.issue.key} row={row} ball={balls.get(row.issue.key)} {...rowProps} />)}
             </Section>
-            <Section title="Needs a look" count={sections.flagged.length} tone="text-red">
+            <Section title="Needs a look" count={sections.flagged.length} tone="text-red" dot="bg-red">
               {sections.flagged.map((row) => <TicketRow key={row.issue.key} row={row} ball={balls.get(row.issue.key)} {...rowProps} />)}
             </Section>
             <Section title="In flight" count={sections.inFlight.length}>
@@ -317,12 +333,12 @@ export function ActivityView() {
             )}
             </>}
             {loaded && matching.length === 0 && (
-              <div className="flex flex-col items-center gap-2 py-16 text-dim">
-                <Icon name="check" size={20} className="text-green" />
+              <div className="flex flex-col items-center gap-2 py-16 text-mut">
+                <Icon name="check" size={20} />
                 {rows.length === 0 ? "No tickets on the board." : "Nothing matches."}
               </div>
             )}
-            {!loaded && <p className="py-8 text-dim">Waiting for the board and GitHub… Connect a board under Settings → Workspaces if nothing shows up.</p>}
+            {!loaded && <p className="py-8 text-mut">Waiting for the board and GitHub… Connect a board under Settings → Workspaces if nothing shows up.</p>}
           </div>
         </div>
         {selected && settings && (
@@ -355,16 +371,17 @@ function AgentRow({ link }: { link: AgentLink }) {
   };
   const since = new Date(link.updatedAt).toISOString();
   return (
-    <article onClick={next.run} aria-label={link.title ?? name} className="cursor-pointer border-b border-edge px-4 py-2.5 last:border-b-0 hover:bg-card">
-      <div className="flex min-w-0 items-center gap-2">
-        <span className={`flex w-2 shrink-0 justify-center ${statusTones[link.status].text}`}><StatusMark status={link.status} size={9} /></span>
-        <span className="shrink-0 text-[11px] text-mut">{name}</span>
-        <span className="min-w-0 flex-1 truncate text-soft" title={link.title ?? undefined}>{link.title ?? link.cwd.split("/").pop()}</span>
-        <ContinueButton next={next} />
-        <span className="hidden shrink-0 truncate text-[11px] text-dim @[560px]:inline">{link.cwd.split("/").pop()}</span>
-        <span className="w-[64px] shrink-0 text-right text-[10px] text-orange" title={`${statusLabels[link.status]} since ${new Date(since).toLocaleString()}`}>waiting {relativeTime(since).replace(" ago", "")}</span>
-      </div>
-      {link.reviewNote && <p className="mt-1 line-clamp-2 pl-4 text-[11px] text-dim">{link.reviewNote}</p>}
+    <article onClick={next.run} aria-label={link.title ?? name} className={`${rowGrid} cursor-pointer border-b border-edge/60 px-4 py-3 last:border-b-0 hover:bg-card`}>
+      <span className={`flex justify-center ${statusTones[link.status].text}`}><StatusMark status={link.status} size={9} /></span>
+      <span className={`truncate font-mono text-[12px] ${statusTones[link.status].text}`}>{name}</span>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="truncate text-[13px] font-medium text-ink" title={link.title ?? undefined}>{link.title ?? link.cwd.split("/").pop()}</span>
+        <span className="line-clamp-2 text-[12px] text-mut">{link.reviewNote ?? `${statusLabels[link.status]} · no ticket`}</span>
+      </span>
+      <span className="flex items-center"><ContinueButton next={next} /></span>
+      <span className={`${assigneeCell} font-mono text-mut`}>{link.cwd.split("/").pop()}</span>
+      <span />
+      <span className="justify-self-end whitespace-nowrap font-mono text-[12px] text-orange" title={`${statusLabels[link.status]} since ${new Date(since).toLocaleString()}`}>{relativeTime(since).replace(" ago", "")}</span>
     </article>
   );
 }
@@ -387,27 +404,29 @@ function TicketRow({ row, compact = false, ball, viewer, requested, allPrs, link
 
   return (
     <article onClick={() => onOpen(row)} aria-label={row.issue.key}
-      className={`cursor-pointer border-b border-edge px-4 last:border-b-0 hover:bg-card ${compact ? "py-1.5" : "py-2.5"} ${selectedKey === row.issue.key ? "bg-card" : ""}`}>
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="flex w-2 shrink-0 justify-center">{isNew && <span aria-label="New since you last looked" className="h-2 w-2 rounded-full bg-accent" />}</span>
-        <button onClick={(e) => { e.stopPropagation(); window.open(row.issue.url); }} title={`Open ${row.issue.key} in the tracker`}
-          className={`shrink-0 text-[11px] hover:underline ${isNew ? "font-bold text-ink" : "text-mut"}`}>{row.issue.key}</button>
-        <span className={`min-w-0 flex-1 truncate ${isNew ? "text-ink" : "text-soft"}`} title={row.issue.summary}>{row.issue.summary}</span>
+      className={`${rowGrid} cursor-pointer border-b border-edge/60 px-4 last:border-b-0 hover:bg-card ${compact ? "py-2" : "py-3"} ${selectedKey === row.issue.key ? "bg-card" : isNew ? "bg-panel" : ""}`}>
+      <span className="flex justify-center">{isNew && <span aria-label="New since you last looked" className="h-2 w-2 rounded-full bg-ink" />}</span>
+      <button onClick={(e) => { e.stopPropagation(); window.open(row.issue.url); }} title={`Open ${row.issue.key} in the tracker`}
+        className={`max-w-full justify-self-start truncate font-mono text-[12px] hover:underline ${isNew ? "font-semibold text-ink" : "text-body"}`}>{row.issue.key}</button>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className={`truncate text-[13px] text-ink ${isNew ? "font-semibold" : "font-medium"}`} title={row.issue.summary}>{row.issue.summary}</span>
+        {isNew && <span className="text-[12px] text-soft">{row.changes.join(" · ")}</span>}
+      </span>
+      <span className="flex items-center gap-1.5">
         {next && <ContinueButton next={next} />}
         {/* The agent Continue goes to is already on the button. */}
         {agents.filter((agent) => agent.link.sessionId !== next?.agent?.link.sessionId).slice(0, 2).map((agent) => <AgentChip key={agent.link.sessionId} agent={agent} />)}
-        {agents.length > 3 && <span className="shrink-0 text-[10px] text-dim">+{agents.length - 3}</span>}
-        <span className="hidden shrink-0 truncate text-[11px] text-dim @[560px]:inline">{row.issue.assignee ?? "unassigned"}</span>
-        <span className="max-w-[140px] shrink-0 truncate rounded border border-edge2 px-1.5 text-[10px] leading-[16px] text-body" title={row.column !== row.issue.statusName ? `${row.issue.statusName} (${row.column})` : row.issue.statusName}>{row.issue.statusName}</span>
-        {ball && ball.stance !== "done"
-          ? <span className={`w-[64px] shrink-0 text-right text-[10px] ${ball.stance === "you" ? "text-orange" : ball.stance === "them" ? "text-blue" : "text-dim"}`}
-              title={`${ballText(ball)} since ${new Date(ball.since).toLocaleString()}`}>waiting {relativeTime(ball.since).replace(" ago", "")}</span>
-          : <span className="w-[64px] shrink-0 text-right text-[10px] text-dim" title="Last activity">{relativeTime(row.lastActivity || row.issue.updated).replace(" ago", "")}</span>}
-      </div>
-      {isNew && <p className="mt-1 pl-4 text-[11px] text-accent">{row.changes.join(" · ")}</p>}
-      {row.flags.map((flag) => <p key={flag} className="mt-1 flex items-center gap-1.5 pl-4 text-[11px] text-red"><span aria-hidden>⚠</span>{flag}</p>)}
+        {agents.length > 3 && <span className="shrink-0 font-mono text-[11px] text-mut">+{agents.length - 3}</span>}
+      </span>
+      <span className={`${assigneeCell} text-body`}>{row.issue.assignee ?? "unassigned"}</span>
+      <span className="max-w-full justify-self-start truncate rounded-md border border-edge2 px-2 text-[12px] leading-5 text-soft" title={row.column !== row.issue.statusName ? `${row.issue.statusName} (${row.column})` : row.issue.statusName}>{row.issue.statusName}</span>
+      {ball && ball.stance !== "done"
+        ? <span className={`justify-self-end whitespace-nowrap font-mono text-[12px] ${ball.stance === "you" ? "text-orange" : ball.stance === "them" ? "text-blue" : "text-mut"}`}
+            title={`${ballText(ball)} since ${new Date(ball.since).toLocaleString()}`}>{relativeTime(ball.since).replace(" ago", "")}</span>
+        : <span className="justify-self-end whitespace-nowrap font-mono text-[12px] text-mut" title="Last activity">{relativeTime(row.lastActivity || row.issue.updated).replace(" ago", "")}</span>}
+      {row.flags.map((flag) => <p key={flag} className="col-[2/-1] flex items-center gap-1.5 text-[12px] text-red"><span aria-hidden>⚠</span>{flag}</p>)}
       {!compact && row.prs.length > 0 && (
-        <div className="mt-1.5 flex flex-col gap-1 pl-4">
+        <div className="col-[2/-1] flex flex-col gap-1.5">
           {row.prs.map((pr) => <PrLine key={prKey(pr)} pr={pr} viewer={viewer} below={stackedOn(pr, allPrs)} move={moveOf(pr, viewer, requested)} onOpen={() => onOpenPr(row, pr)} />)}
         </div>
       )}
@@ -416,33 +435,34 @@ function TicketRow({ row, compact = false, ball, viewer, requested, allPrs, link
 }
 
 /** One PR: which it is, whose move, then who last committed and reviewed.
- *  The first two parts keep their width so the lines of a list align; the
- *  rest moves below them when the page is narrow. */
+ *  Fixed first columns so the PR lines of a list align; the rest moves below
+ *  them when the list is narrow. */
 function PrLine({ pr, viewer, below, move, onOpen }: { pr: ActivityPr; viewer: string; below?: ActivityPr; move: Move; onOpen: () => void }) {
   const review = pr.lastReview && (reviewWords[pr.lastReview.state] ?? { text: pr.lastReview.state.toLowerCase(), tone: "text-body" });
   const who = (login: string) => (login === viewer ? "you" : login || "?");
+  const details = [
+    pr.mergeable === "CONFLICTING" && pr.state === "OPEN" && <span key="conflicts" className="text-red" title="Merge conflicts">conflicts</span>,
+    pr.lastCommit && <span key="commit" title={pr.lastCommit.at}>pushed by <span className="text-soft">{who(pr.lastCommit.author)}</span> {relativeTime(pr.lastCommit.at)}</span>,
+    pr.lastReview && review
+      ? <span key="review" title={pr.lastReview.onHead ? "On the latest commit" : "On an older commit"}>
+          <span className="text-soft">{who(pr.lastReview.author)}</span> <span className={review.tone}>{review.text}</span> {relativeTime(pr.lastReview.at)}
+          {!pr.lastReview.onHead && pr.state === "OPEN" && <span> · before the last push</span>}
+        </span>
+      : pr.state === "OPEN" && <span key="review">no reviews yet</span>,
+    // Open threads are the user's to answer only when the move is theirs.
+    pr.unresolvedThreads > 0 && <span key="threads" className={move.strong ? "text-orange" : "text-soft"}>{pr.unresolvedThreads} open thread{pr.unresolvedThreads === 1 ? "" : "s"}</span>,
+  ].filter(Boolean);
   return (
-    <div className="flex flex-wrap items-start gap-x-3 gap-y-0.5 text-[11px] leading-[18px]">
-      <span className="flex w-[190px] min-w-0 items-center gap-1.5">
-        <span title={checkWords[pr.checks] ?? "no checks"} className={`shrink-0 text-[9px] ${checkTone[pr.checks] ?? "text-edge3"}`}>●</span>
-        <button onClick={(e) => { e.stopPropagation(); onOpen(); }} title={`${pr.title}\n${prKey(pr)}`} className="min-w-0 truncate text-body hover:text-ink hover:underline">
-          <span className="text-dim">{pr.repo.split("/")[1]}</span>#{pr.number}
+    <div className="grid grid-cols-[120px_minmax(0,1fr)] items-center gap-x-3 gap-y-1 text-[12px] @[640px]:grid-cols-[120px_240px_minmax(0,1fr)]">
+      <span className="flex min-w-0 items-center gap-[7px]">
+        {checkMark(pr)}
+        <button onClick={(e) => { e.stopPropagation(); onOpen(); }} title={`${pr.title}\n${prKey(pr)}`} className="min-w-0 truncate font-mono text-soft hover:text-ink hover:underline">
+          <span className="text-body">{pr.repo.split("/")[1]}</span>#{pr.number}
         </button>
-        {pr.mergeable === "CONFLICTING" && pr.state === "OPEN" && <span className="shrink-0 text-red" title="Merge conflicts">conflicts</span>}
-        {below && <span className="shrink-0 text-dim" title={`Stacked on ${prKey(below)} (${below.headRefName})`}>on #{below.number}</span>}
+        {below && <span className="shrink-0 font-mono text-mut" title={`Stacked on ${prKey(below)} (${below.headRefName})`}>on #{below.number}</span>}
       </span>
-      <span className="flex w-[230px] min-w-0"><MovePill move={move} /></span>
-      {/* Below the PR, not squeezed beside it, once there is no room for a line of its own. */}
-      <span className="flex min-w-[260px] flex-1 flex-wrap items-center gap-x-3 gap-y-0.5 text-dim">
-        {pr.lastCommit && <span className="truncate" title={pr.lastCommit.at}>pushed by <span className="text-body">{who(pr.lastCommit.author)}</span> {relativeTime(pr.lastCommit.at)}</span>}
-        {pr.lastReview && review
-          ? <span className="truncate" title={pr.lastReview.onHead ? "On the latest commit" : "On an older commit"}>
-              <span className="text-body">{who(pr.lastReview.author)}</span> <span className={review.tone}>{review.text}</span> {relativeTime(pr.lastReview.at)}
-              {!pr.lastReview.onHead && pr.state === "OPEN" && <span className="text-mut"> · before the last push</span>}
-            </span>
-          : pr.state === "OPEN" && <span>no reviews yet</span>}
-        {pr.unresolvedThreads > 0 && <span className="text-orange">{pr.unresolvedThreads} open thread{pr.unresolvedThreads === 1 ? "" : "s"}</span>}
-      </span>
+      <span className="flex min-w-0"><MovePill move={move} /></span>
+      <span className="col-span-2 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-mut @[640px]:col-span-1">{dotted(details)}</span>
     </div>
   );
 }
@@ -486,30 +506,34 @@ function StackGroup({ rows, base, viewer, requested, allPrs, links, selectedKey,
   const moves = rows.map((row) => row.prs.find((pr) => pr.state === "OPEN")).filter((pr): pr is ActivityPr => Boolean(pr)).map((pr) => moveOf(pr, viewer, requested).label);
   const summary = [...new Set(moves)].map((label) => `${moves.filter((m) => m === label).length} ${label.toLowerCase()}`).join(" · ");
   return (
-    <div className="border-b border-edge last:border-b-0">
-      <button onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full min-w-0 items-center gap-2 px-4 py-2.5 text-left hover:bg-card">
-        <span className="flex w-2 shrink-0 justify-center text-dim"><Icon name={open ? "chevronDown" : "chevronRight"} size={10} /></span>
-        <Icon name="layers" size={12} className="shrink-0 text-dim" />
-        <span className="shrink-0 text-soft">Stack of {rows.length}</span>
-        <span className="min-w-0 truncate text-[11px] text-dim">
-          {base && <>in {base.repo.split("/")[1]}, starting at #{base.number} into {base.baseRefName}</>}
+    <div className="border-b border-edge/60 last:border-b-0">
+      <button onClick={() => setOpen((o) => !o)} aria-expanded={open} className={`${rowGrid} w-full px-4 py-3 text-left hover:bg-card`}>
+        <span className="flex justify-center text-mut"><Icon name={open ? "chevronDown" : "chevronRight"} size={12} /></span>
+        <span className="col-[2/5] flex min-w-0 items-center gap-2">
+          <Icon name="layers" size={13} className="text-mut" />
+          <span className="shrink-0 text-[13px] font-medium text-ink">Stack of {rows.length}</span>
+          <span className="min-w-0 truncate text-[12px] text-mut">
+            {base && <>in {base.repo.split("/")[1]}, starting at <span className="font-mono">#{base.number}</span> into <span className="font-mono">{base.baseRefName}</span></>}
+          </span>
         </span>
-        <span className="ml-auto shrink-0 text-[11px] text-dim">{summary}</span>
+        <span className="col-[5/-1] truncate text-right text-[12px] text-mut" title={summary}>{summary}</span>
       </button>
       {open && (
-        <div className="border-t border-edge bg-panel/50">
+        <div className="border-t border-edge/60 bg-panel">
           {rows.map((row) => {
             const pr = row.prs.find((p) => p.state === "OPEN")!;
             return (
               <div key={row.issue.key} onClick={() => onOpen(row)} role="button"
-                className={`flex min-w-0 cursor-pointer items-center gap-2 border-b border-edge px-4 py-1.5 pl-10 text-[11px] last:border-b-0 hover:bg-card ${selectedKey === row.issue.key ? "bg-card" : ""}`}>
-                <span className="shrink-0 text-mut">{row.issue.key}</span>
-                <span className="min-w-0 flex-1 truncate text-soft" title={row.issue.summary}>{row.issue.summary}</span>
-                <button onClick={(e) => { e.stopPropagation(); onOpenPr(row, pr); }} className="shrink-0 text-body hover:text-ink hover:underline">#{pr.number}</button>
-                {stackedOn(pr, allPrs) && <span className="shrink-0 text-dim">on #{stackedOn(pr, allPrs)!.number}</span>}
-                {agentsForPr(pr, row.issue.key, links).slice(0, 1).map((agent) => <AgentChip key={agent.link.sessionId} agent={agent} />)}
-                <span className={`shrink-0 text-[9px] ${checkTone[pr.checks] ?? "text-edge3"}`} title={checkWords[pr.checks] ?? "no checks"}>●</span>
-                <MovePill move={moveOf(pr, viewer, requested)} />
+                className={`${rowGrid} cursor-pointer border-b border-edge/60 px-4 py-2 last:border-b-0 hover:bg-card ${selectedKey === row.issue.key ? "bg-card" : ""}`}>
+                <span className="flex justify-center">{checkMark(pr)}</span>
+                <span className="truncate font-mono text-[12px] text-body">{row.issue.key}</span>
+                <span className="truncate text-[13px] text-soft" title={row.issue.summary}>{row.issue.summary}</span>
+                <span className="flex items-center gap-2 text-[12px]">
+                  <button onClick={(e) => { e.stopPropagation(); onOpenPr(row, pr); }} className="shrink-0 font-mono text-soft hover:text-ink hover:underline">#{pr.number}</button>
+                  {stackedOn(pr, allPrs) && <span className="shrink-0 font-mono text-mut">on #{stackedOn(pr, allPrs)!.number}</span>}
+                  {agentsForPr(pr, row.issue.key, links).slice(0, 1).map((agent) => <AgentChip key={agent.link.sessionId} agent={agent} />)}
+                </span>
+                <span className="col-[5/-1] flex min-w-0"><MovePill move={moveOf(pr, viewer, requested)} /></span>
               </div>
             );
           })}

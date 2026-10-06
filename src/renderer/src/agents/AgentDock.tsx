@@ -47,17 +47,17 @@ export function AgentDock() {
       className={expanded
         ? "fixed bottom-0 right-0 top-11 z-40 flex w-[min(640px,50vw)] flex-col overflow-hidden border-l border-edge2 bg-panel shadow-[0_12px_40px_#000a]"
         : "fixed bottom-4 right-4 z-40 flex h-[600px] max-h-[calc(100vh-6rem)] w-[440px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-edge2 bg-panel shadow-[0_12px_40px_#000a]"}>
-      <div className="flex items-center gap-2 border-b border-edge px-4 py-2.5">
-        <Icon name="sparkle" size={14} className="text-accent" />
-        <span className="text-[12px] font-bold text-ink">Agent</span>
+      <div className={`flex shrink-0 items-center gap-2.5 border-b border-edge pl-4 pr-2 ${expanded ? "h-[52px]" : "h-11"}`}>
+        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent/15 text-accent"><Icon name="sparkle" size={13} /></span>
+        <span className="font-display text-[14px] font-bold text-ink">Agent</span>
         <div className="ml-auto flex items-center gap-1">
           {expanded && shared && shared.shared < shared.total && (
-            <span title="Restricted in Settings → What deck may share with the agent" className="mr-1 text-[11px] text-orange">sharing {shared.shared} of {shared.total} sessions</span>
+            <span title="Restricted in Settings → What deck may share with the agent" className="mr-1 text-[12px] text-mut">sees {shared.shared} of {shared.total} sessions</span>
           )}
-          {turns.length > 0 && <button onClick={reset} className="mr-1 rounded-md border border-edge2 px-2 py-0.5 text-[11px] text-body hover:text-ink">New chat</button>}
+          {turns.length > 0 && <button onClick={reset} className="mr-1 h-7 rounded-md border border-edge2 px-2.5 text-[12px] text-soft hover:border-edge3 hover:text-ink">New chat</button>}
           <button onClick={() => expand(!expanded)} aria-label={expanded ? "Collapse agent panel" : "Expand agent panel"} title={expanded ? "Back to the small card" : "Expand along the right edge"}
-            className={`rounded p-1 ${expanded ? "bg-card2 text-soft" : "text-dim hover:text-ink"}`}><Icon name="expand" size={12} /></button>
-          <button onClick={() => toggle(false)} aria-label="Close agent dock" className="rounded p-1 text-dim hover:text-ink"><Icon name="x" size={12} /></button>
+            className={`flex h-7 w-7 items-center justify-center rounded-md ${expanded ? "bg-card2 text-soft" : "text-mut hover:text-ink"}`}><Icon name="expand" size={13} /></button>
+          <button onClick={() => toggle(false)} aria-label="Close agent dock" className="flex h-7 w-7 items-center justify-center rounded-md text-mut hover:text-ink"><Icon name="x" size={13} /></button>
         </div>
       </div>
       <AgentChat compact={!expanded} sessions={sessions.filter((s) => s.status !== "ended")} />

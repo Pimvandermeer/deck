@@ -1,26 +1,32 @@
 @import "tailwindcss";
 
-/* Palette and type from the deck design project (Deck.dc.html, classic). */
+/* Palette and type from the deck design project ("Quiet console"). Each hue
+   has one meaning: orange is the user's move, blue someone else's, accent
+   agents and deck, green and red checks and verdicts only. */
 @theme {
-  --color-bg: #080808;
-  --color-panel: #111111;
-  --color-card: #171717;
-  --color-card2: #232323;
-  --color-overlay: #191919;
-  --color-edge: #232323;
-  --color-edge2: #303030;
-  --color-edge3: #424242;
-  --color-ink: #e7e7e7;
-  --color-body: #aaa9a7;
-  --color-soft: #d0cfcc;
-  --color-mut: #858583;
-  --color-dim: #71716e;
+  --color-bg: #09090a;
+  --color-panel: #101011;
+  --color-card: #161618;
+  --color-card2: #1d1d20;
+  --color-overlay: #19191b;
+  --color-edge: #242427;
+  --color-edge2: #303034;
+  --color-edge3: #424246;
+  --color-ink: #ededeb;
+  --color-body: #abaaa6;
+  --color-soft: #d4d3cf;
+  --color-mut: #8e8d89;
+  --color-dim: #858480;
   --color-accent: #a78bfa;
   --color-green: #4ade80;
   --color-blue: #38bdf8;
   --color-orange: #fb923c;
   --color-red: #f87171;
-  --font-mono: "Space Mono", ui-monospace, Menlo, monospace;
+  /* Interface text in Geist, data (keys, numbers, branches, code) in
+     JetBrains Mono, and Space Mono kept as deck's voice for page titles. */
+  --font-sans: "Geist Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --font-display: "Space Mono", ui-monospace, Menlo, monospace;
 }
 
 html,
@@ -32,7 +38,7 @@ body,
 body {
   background: var(--color-bg);
   color: var(--color-body);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 13px;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
@@ -200,9 +206,10 @@ body {
 
 /* PR description reads like a document, not a chat card. */
 .pr-overview-body .md {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.65;
   margin-top: 0;
+  color: var(--color-soft);
 }
 .pr-overview-body .md h1 {
   font-size: 18px;
@@ -214,16 +221,16 @@ body {
 }
 .pr-overview-body .md h3,
 .pr-overview-body .md h4 {
-  font-size: 13px;
+  font-size: 14px;
   margin-top: 1.2em;
 }
 .pr-overview-body .md code {
-  font-size: 11.5px;
+  font-size: 12px;
   padding: 1px 5px;
 }
 .pr-overview-body .md pre {
   padding: 12px 14px;
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.6;
 }
 .pr-overview-body .md li + li {
@@ -252,20 +259,20 @@ body {
   font-weight: 700;
 }
 .md h1 {
-  font-size: 13px;
+  font-size: 15px;
 }
 .md h2 {
-  font-size: 12px;
+  font-size: 14px;
 }
 .md h3,
 .md h4 {
-  font-size: 11px;
+  font-size: 13px;
 }
 .md strong {
   color: var(--color-soft);
 }
 .md a {
-  color: var(--color-blue);
+  color: var(--color-accent);
   text-decoration: underline;
 }
 .md ul,
@@ -282,11 +289,12 @@ body {
   margin-top: 0.2em;
 }
 .md code {
-  font-family: "Space Mono", monospace;
-  font-size: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-ink);
   background: var(--color-card2);
-  border-radius: 3px;
-  padding: 0 3px;
+  border-radius: 4px;
+  padding: 0 4px;
 }
 .md pre {
   background: var(--color-bg);

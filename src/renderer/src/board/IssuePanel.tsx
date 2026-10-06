@@ -5,18 +5,20 @@ import type { RepoDir } from "../../../main/providers.js";
 import type { BoardIssue } from "../../../main/board/types.js";
 import type { AgentSession } from "../../../main/sessions.js";
 import { StatusMark, statusLabels, statusTones } from "../chrome/SessionIcon.js";
-import { agentsForTicket, reasonLabel } from "../../../shared/agentLinks.js";
+import { agentsForTicket, needsYou, reasonLabel } from "../../../shared/agentLinks.js";
 import type { ActivityPr } from "../../../shared/activity.js";
+import { prKey } from "../../../shared/prs.js";
 import { focusTerminal } from "../lib/bus.js";
 import { useBoardActivity } from "../lib/useActivity.js";
 import { useAgentLinks } from "../lib/useAgentLinks.js";
+import { usePrInbox } from "../lib/useInbox.js";
 import { useTabs } from "../store.js";
+import { MovePill, moveOf } from "./prUi.js";
 
-const stateColor: Record<string, string> = {
-  OPEN: "text-green",
-  MERGED: "text-accent",
-  CLOSED: "text-red",
-};
+const section = "pt-1 text-[11px] font-semibold tracking-[0.06em] text-mut";
+// An agent waiting on the user is the user's move, so its row turns orange.
+const agentRow = (waiting: boolean) =>
+  `flex items-center gap-2.5 rounded-[10px] border px-3 py-2 text-left hover:border-edge3 ${waiting ? "border-orange/40 bg-orange/10" : "border-edge bg-card"}`;
 
 export interface IssuePanelProps {
   issue: BoardIssue;
@@ -56,6 +58,8 @@ export function IssuePanel({ issue, rejected, onClose, onOpenDiff }: IssuePanelP
   // the checkout is on a PR branch, or the agent opened the PR.
   const links = useAgentLinks();
   const { activity } = useBoardActivity();
+  const inbox = usePrInbox();
+  const requested = useMemo(() => new Set((inbox?.reviewRequested ?? []).map(prKey)), [inbox]);
   const onPrs = useMemo(() => {
     const ticketPrs = (activity?.tickets[issue.key] ?? []).map((key) => activity?.prs[key]).filter((pr): pr is ActivityPr => Boolean(pr));
     return agentsForTicket(issue.key, ticketPrs, links).filter((agent) => !linked.some((s) => s.session_id === agent.link.sessionId));
@@ -89,29 +93,29 @@ export function IssuePanel({ issue, rejected, onClose, onOpenDiff }: IssuePanelP
   return (
     <div className="flex w-[400px] shrink-0 flex-col border-l border-edge bg-panel">
       <div className="flex items-center gap-2 border-b border-edge px-4 py-3">
-        <span className="text-[11px] text-dim">{issue.key}</span>
-        <span className="text-[11px] text-orange">◐ {issue.statusName.toLowerCase()}</span>
-        <button onClick={onClose} className="ml-auto text-dim hover:text-ink">
+        <span className="font-mono text-[11px] text-mut">{issue.key}</span>
+        <span className="inline-flex h-[22px] items-center rounded-md border border-edge2 px-2 text-[12px] text-soft">{issue.statusName}</span>
+        <button onClick={onClose} className="ml-auto text-mut hover:text-ink">
           ×
         </button>
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-4">
-        <div className="text-sm leading-relaxed text-ink">{issue.summary}</div>
-        <div className="flex gap-2 text-[10px]">
-          <span className="rounded bg-card2 px-2 py-0.5 text-mut">
+        <div className="text-[15px] font-semibold leading-snug text-ink">{issue.summary}</div>
+        <div className="flex gap-2 text-[11px]">
+          <span className="rounded-md bg-card2 px-2 py-0.5 text-body">
             {issue.assignee ?? "unassigned"}
           </span>
           <button
             onClick={() => window.open(issue.url)}
-            className="rounded bg-card2 px-2 py-0.5 text-accent hover:underline"
+            className="rounded-md bg-card2 px-2 py-0.5 text-accent hover:underline"
           >
             open issue ↗
           </button>
         </div>
 
-        <div className="pt-1 text-[10px] tracking-widest text-dim">AGENTS</div>
+        <div className={section}>AGENTS</div>
         {linked.length === 0 && onPrs.length === 0 && (
-          <div className="-mt-2 text-[11px] text-dim">no agent has touched this ticket</div>
+          <div className="-mt-2 text-[12px] text-mut">no agent has touched this ticket</div>
         )}
         {linked.map((s) => {
           const g = statusTones[s.status];
@@ -122,13 +126,13 @@ export function IssuePanel({ issue, rejected, onClose, onOpenDiff }: IssuePanelP
               title={
                 s.term_id && openTermIds.has(s.term_id) ? "Focus session" : "Continue session"
               }
-              className="flex items-center gap-2.5 rounded-lg border border-edge2 bg-card px-3 py-2 text-left hover:border-edge3"
+              className={agentRow(needsYou(s.status))}
             >
               <span className={g.text}><StatusMark status={s.status} /></span>
-              <span className="min-w-0 flex-1 truncate text-[11px] text-soft">
+              <span className="min-w-0 flex-1 truncate text-[12px] text-soft">
                 {s.title ?? s.session_id.slice(0, 8)}
               </span>
-              <span className={`shrink-0 text-[10px] ${g.text}`}>
+              <span className={`shrink-0 text-[11px] ${g.text}`}>
                 {s.term_id && openTermIds.has(s.term_id) ? "focus →" : `${statusLabels[s.status].toLowerCase()} · continue →`}
               </span>
             </button>
@@ -141,14 +145,14 @@ export function IssuePanel({ issue, rejected, onClose, onOpenDiff }: IssuePanelP
               key={agent.link.sessionId}
               onClick={() => focusTerminal(agent.link.termId)}
               title="Focus session"
-              className="flex items-center gap-2.5 rounded-lg border border-edge2 bg-card px-3 py-2 text-left hover:border-edge3"
+              className={agentRow(needsYou(agent.link.status))}
             >
               <span className={g.text}><StatusMark status={agent.link.status} /></span>
-              <span className="min-w-0 flex-1 truncate text-[11px] text-soft">
+              <span className="min-w-0 flex-1 truncate text-[12px] text-soft">
                 {agent.link.title ?? agent.link.sessionId.slice(0, 8)}
-                <span className="text-dim"> · {reasonLabel(agent)}</span>
+                <span className="text-mut"> · {reasonLabel(agent)}</span>
               </span>
-              <span className={`shrink-0 text-[10px] ${g.text}`}>{statusLabels[agent.link.status].toLowerCase()} · focus →</span>
+              <span className={`shrink-0 text-[11px] ${g.text}`}>{statusLabels[agent.link.status].toLowerCase()} · focus →</span>
             </button>
           );
         })}
@@ -158,7 +162,7 @@ export function IssuePanel({ issue, rejected, onClose, onOpenDiff }: IssuePanelP
           <select
             value={repoPath}
             onChange={(e) => setRepoPath(e.target.value)}
-            className="min-w-0 flex-1 rounded-md border border-edge2 bg-card px-2 py-1.5 text-[11px] text-body outline-none"
+            className="h-[30px] min-w-0 flex-1 rounded-lg border border-edge bg-card px-2 text-[12px] text-soft outline-none focus:border-edge3"
           >
             <option value="">default cwd</option>
             {repos.map((r) => (
@@ -170,43 +174,47 @@ export function IssuePanel({ issue, rejected, onClose, onOpenDiff }: IssuePanelP
           <AgentSelect value={agent} onChange={setAgent} />
           <button
             onClick={spinUp}
-            className={`shrink-0 rounded-md border px-3 py-1.5 text-[11px] ${
+            className={`h-[30px] shrink-0 rounded-lg border px-3 text-[12px] font-semibold ${
               rejected
                 ? "border-red/40 text-red hover:bg-red/20"
-                : "border-edge2 text-accent hover:border-accent"
+                : "border-accent/30 bg-accent/15 text-accent hover:border-accent/60"
             }`}
           >
             {rejected ? "✗ fix rejection" : `✳ spin up ${agent}`}
           </button>
         </div>
 
-        <div className="pt-1 text-[10px] tracking-widest text-dim">PULL REQUESTS</div>
-        {prs === undefined && <div className="-mt-2 text-[11px] text-dim">searching…</div>}
-        {prs?.length === 0 && <div className="-mt-2 text-[11px] text-dim">none found</div>}
-        {prs?.map((pr) => (
-          <div
-            key={`${pr.repo}#${pr.number}`}
-            className="rounded-lg border border-edge2 bg-card p-3"
-          >
-            <div className="flex items-center gap-2">
-              <span className={`text-[11px] ${stateColor[pr.state] ?? "text-dim"}`}>
-                {pr.isDraft ? "draft" : pr.state.toLowerCase()}
-              </span>
-              <span className="truncate text-xs text-soft">
-                #{pr.number} {pr.title}
-              </span>
+        <div className={section}>PULL REQUESTS</div>
+        {prs === undefined && <div className="-mt-2 text-[12px] text-mut">searching…</div>}
+        {prs?.length === 0 && <div className="-mt-2 text-[12px] text-mut">none found</div>}
+        {prs?.map((pr) => {
+          // The search result has no review state; the activity cache does when it tracks the PR.
+          const tracked = activity?.prs[prKey(pr)];
+          return (
+            <div
+              key={`${pr.repo}#${pr.number}`}
+              className="rounded-[10px] border border-edge bg-card p-3"
+            >
+              <div className="flex items-baseline gap-2">
+                <span className="shrink-0 font-mono text-[11px] text-mut">
+                  {pr.repo.split("/")[1] ?? pr.repo}#{pr.number}
+                </span>
+                <span className="truncate text-[13px] font-medium text-ink">{pr.title}</span>
+              </div>
+              <div className="mt-2 flex items-center gap-3 text-[12px]">
+                {tracked && activity
+                  ? <MovePill move={moveOf(tracked, activity.viewer, requested)} />
+                  : <span className="text-mut">{pr.isDraft ? "draft" : pr.state.toLowerCase()}</span>}
+                <button onClick={() => onOpenDiff(pr)} className="ml-auto text-accent hover:underline">
+                  view diff
+                </button>
+                <button onClick={() => window.open(pr.url)} className="text-mut hover:text-ink">
+                  github ↗
+                </button>
+              </div>
             </div>
-            <div className="mt-1 text-[10px] text-dim">{pr.repo.split("/")[1] ?? pr.repo}</div>
-            <div className="mt-2 flex gap-3 text-[11px]">
-              <button onClick={() => onOpenDiff(pr)} className="text-accent hover:underline">
-                view diff
-              </button>
-              <button onClick={() => window.open(pr.url)} className="text-dim hover:text-ink">
-                github ↗
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

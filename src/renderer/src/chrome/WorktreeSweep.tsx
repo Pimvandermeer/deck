@@ -55,7 +55,7 @@ export function WorktreeSweep({ onClose }: { onClose: () => void }) {
     {safe.length > 1 && <div className="flex items-center gap-2 border-b border-edge px-3 py-2">
       <span className="min-w-0 flex-1 text-[11px] text-mut">{safe.length} merged and clean · {size(reclaimable)}</span>
       <button disabled={busy.length > 0} onClick={() => void remove(safe, false)}
-        className="shrink-0 rounded-md border border-edge3 px-2 py-1 text-[10px] text-soft hover:bg-card disabled:opacity-40">
+        className="shrink-0 rounded-md border border-edge3 px-2 py-1 text-[11px] text-soft hover:bg-card disabled:opacity-40">
         Remove all
       </button>
     </div>}
@@ -69,11 +69,11 @@ export function WorktreeSweep({ onClose }: { onClose: () => void }) {
           <div className="flex items-baseline gap-2">
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[12px] text-soft" title={worktree.path}>{worktree.branch || "detached HEAD"}</span>
-              <span className="mt-0.5 block truncate text-[10px] text-dim">{worktree.repo} · {size(worktree.size)}</span>
+              <span className="mt-0.5 block truncate text-[11px] text-dim">{worktree.repo} · {size(worktree.size)}</span>
             </span>
-            {working && <span className="shrink-0 text-[10px] text-dim">removing…</span>}
+            {working && <span className="shrink-0 text-[11px] text-dim">removing…</span>}
           </div>
-          <div className="mt-1.5 flex items-center gap-2 text-[10px]">
+          <div className="mt-1.5 flex items-center gap-2 text-[11px]">
             <span className={worktree.merged ? "text-dim" : "text-orange"}>
               {worktree.merged ? "merged" : "not on the default branch"}
             </span>
@@ -90,7 +90,7 @@ export function WorktreeSweep({ onClose }: { onClose: () => void }) {
           </div>
         </div>;
       })}
-      {error && <pre className="whitespace-pre-wrap px-3 py-2 text-[10px] text-red">{error}</pre>}
+      {error && <pre className="whitespace-pre-wrap px-3 py-2 text-[11px] text-red">{error}</pre>}
     </div>
   </div>;
 }

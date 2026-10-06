@@ -95,7 +95,7 @@ export function SearchView({ initialQuery, initialSessionId }: SearchViewProps) 
           className="w-full max-w-2xl bg-transparent text-sm text-ink outline-none placeholder:text-dim"
         />
         {progress && !progress.done && (
-          <span className="ml-auto shrink-0 text-[10px] text-dim">
+          <span className="ml-auto shrink-0 text-[11px] text-dim">
             indexing {progress.scanned}/{progress.total}
           </span>
         )}
@@ -120,7 +120,7 @@ export function SearchView({ initialQuery, initialSessionId }: SearchViewProps) 
               <div className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-mut">
                 <Snippet text={hit.snippet} />
               </div>
-              <div className="mt-0.5 text-[10px] text-dim">
+              <div className="mt-0.5 text-[11px] text-dim">
                 {hit.agent} · {hit.project.replace(/^-Users-[^-]+-/, "")} · {ago(hit.last_at)}
               </div>
             </button>
@@ -143,7 +143,7 @@ export function SearchView({ initialQuery, initialSessionId }: SearchViewProps) 
                 {messages.map((m, i) => (
                   <div key={i} className="mb-3">
                     <div
-                      className={`mb-0.5 text-[10px] uppercase tracking-wide ${
+                      className={`mb-0.5 text-[11px] uppercase tracking-wide ${
                         m.role === "user" ? "text-accent" : "text-dim"
                       }`}
                     >

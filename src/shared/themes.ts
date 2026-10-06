@@ -9,9 +9,9 @@ export interface DeckTheme {
   source?: string;
 }
 const darkColors: ThemeColors = {
-  bg: "#080808", panel: "#111111", card: "#171717", card2: "#232323", overlay: "#191919",
-  edge: "#232323", edge2: "#303030", edge3: "#424242", ink: "#e7e7e7", body: "#aaa9a7", soft: "#d0cfcc",
-  mut: "#858583", dim: "#71716e", accent: "#a78bfa", green: "#4ade80", blue: "#38bdf8", orange: "#fb923c", red: "#f87171",
+  bg: "#09090a", panel: "#101011", card: "#161618", card2: "#1d1d20", overlay: "#19191b",
+  edge: "#242427", edge2: "#303034", edge3: "#424246", ink: "#ededeb", body: "#abaaa6", soft: "#d4d3cf",
+  mut: "#8e8d89", dim: "#858480", accent: "#a78bfa", green: "#4ade80", blue: "#38bdf8", orange: "#fb923c", red: "#f87171",
 };
 const terminalBase = {
   black: "#15151a", red: "#f7768e", green: "#9ece6a", yellow: "#e0af68", blue: "#7aa2f7", magenta: "#bb9af7", cyan: "#7dcfff", white: "#c0caf5",

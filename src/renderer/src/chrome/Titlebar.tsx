@@ -22,7 +22,7 @@ export function Titlebar({ onSearch, onSidebar, onView, sidebarOpen }: { onSearc
     </select>}
     <div className="flex min-w-0 flex-1 justify-center px-8">
       <button onClick={onSearch} className="flex h-7 w-full max-w-[390px] items-center gap-2 rounded-md bg-card px-3 text-[12px] text-mut hover:bg-card2 hover:text-soft">
-        <Icon name="search" size={14} /><span className="flex-1 truncate text-left">Search sessions, history, commands…</span><kbd className="text-[10px] text-dim">⌘K</kbd>
+        <Icon name="search" size={14} /><span className="flex-1 truncate text-left">Search sessions, history, commands…</span><kbd className="text-[11px] text-dim">⌘K</kbd>
       </button>
     </div>
     {git && <button title="Working-tree changes" onClick={() => { onView("terminal"); terminalAction("changes"); }} className="flex items-center gap-1.5 px-2 text-[11px]"><span className="text-mut">±</span><span className="text-green">+{git.added}</span><span className="text-red">−{git.removed}</span></button>}

@@ -10,10 +10,12 @@ import { useAgentLinks } from "../lib/useAgentLinks.js";
 import { usePrInbox } from "../lib/useInbox.js";
 import { agentsForPr, type AgentLink } from "../../../shared/agentLinks.js";
 import type { BoardCache } from "../../../main/board/types.js";
+import { HeaderButton, PageHeader } from "../chrome/PageHeader.js";
 import { AgentChip } from "./AgentLinks.js";
 import { Icon } from "./icons.js";
+import { CheckDot } from "./PrOverview.js";
 import { PrScreen } from "./PrScreen.js";
-import { MovePill, moveOf } from "./prUi.js";
+import { MovePill, moveOf, type CheckTone } from "./prUi.js";
 
 // The review queue: every PR waiting on the user's review, one at a time,
 // with next/previous like a mail client. Approving or requesting changes
@@ -25,11 +27,13 @@ const isTyping = (e: KeyboardEvent) => ["TEXTAREA", "INPUT", "SELECT"].includes(
 const toIssuePr = (pr: InboxPr): IssuePr => ({ repo: pr.repo, number: pr.number, title: pr.title, state: "OPEN", isDraft: pr.isDraft, url: pr.url, author: pr.author, updatedAt: pr.updatedAt });
 
 
-const checkTone: Record<string, string> = { SUCCESS: "text-green", FAILURE: "text-red", ERROR: "text-red", PENDING: "text-orange" };
+const checkTone: Record<string, CheckTone> = { SUCCESS: "pass", FAILURE: "fail", ERROR: "fail", PENDING: "pending", EXPECTED: "pending" };
 const checkLabel: Record<string, string> = { SUCCESS: "Checks passed", FAILURE: "Checks failed", ERROR: "Checks errored", PENDING: "Checks running", EXPECTED: "Checks expected" };
 
-function PrList({ title, prs, current, badge, onPick, activity, seen, links = [], board, requested = new Set() }: {
+function PrList({ title, urgent = false, prs, current, badge, onPick, activity, seen, links = [], board, requested = new Set() }: {
   title: string;
+  /** The list waiting on the user, marked with their colour. */
+  urgent?: boolean;
   prs: InboxPr[];
   current?: InboxPr;
   badge?: (pr: InboxPr) => string | undefined;
@@ -45,8 +49,12 @@ function PrList({ title, prs, current, badge, onPick, activity, seen, links = []
   // New ones first; sort is stable, so the inbox order holds within each part.
   const ordered = [...prs].sort((a, b) => Number(news.get(prKey(b))!.length > 0) - Number(news.get(prKey(a))!.length > 0));
   return (
-    <section aria-label={title} className="flex flex-col gap-1 px-3 py-2.5">
-      <h3 className="flex items-center gap-2 px-1 text-[10px] tracking-widest text-dim">{title.toUpperCase()}<span className="text-mut">{prs.length}</span></h3>
+    <section aria-label={title} className="flex flex-col gap-1 border-edge not-first:mt-2 not-first:border-t not-first:pt-3.5">
+      <h3 className="flex items-center gap-2 px-2 pb-2 pt-0.5 text-[11px] font-semibold tracking-[0.06em]">
+        {urgent && <span className="h-2 w-2 shrink-0 rounded-full bg-orange" />}
+        <span className={urgent ? "text-orange" : "text-body"}>{title.toUpperCase()}</span>
+        <span className="font-mono font-normal text-mut">{prs.length}</span>
+      </h3>
       {ordered.map((pr) => {
         const active = current && pr.repo === current.repo && pr.number === current.number;
         const note = badge?.(pr);
@@ -54,29 +62,29 @@ function PrList({ title, prs, current, badge, onPick, activity, seen, links = []
         const known = activity?.prs[prKey(pr)];
         const agent = agentsForPr(pr, issueFor(pr, board)?.key, links)[0];
         return (
-          <button key={prKey(pr)} onClick={() => onPick(pr)} title={`${pr.title}\n${prKey(pr)}${fresh.length ? `\nNew: ${fresh.join(", ")}` : ""}`}
-            className={`flex flex-col gap-0.5 rounded-lg border px-2.5 py-1.5 text-left ${active ? "border-accent bg-card" : "border-transparent hover:border-edge2 hover:bg-card"}`}>
-            <span className="flex items-center gap-1.5 text-[11px]">
-              {fresh.length > 0 && <span aria-label="New since you last looked" className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}
-              <span className="text-dim">#{pr.number}</span>
-              <span className="min-w-0 flex-1 truncate text-soft">{pr.title}</span>
-              {pr.checks !== "NONE" && (
-                <span title={checkLabel[pr.checks] ?? `Checks: ${pr.checks.toLowerCase()}`} aria-label={checkLabel[pr.checks] ?? pr.checks} className={`shrink-0 ${checkTone[pr.checks] ?? "text-dim"}`}>●</span>
-              )}
+          <button key={prKey(pr)} onClick={() => onPick(pr)} aria-current={active ? "true" : undefined} title={`${pr.title}\n${prKey(pr)}${fresh.length ? `\nNew: ${fresh.join(", ")}` : ""}`}
+            className={`flex flex-col gap-1.5 rounded-[9px] border px-3 py-2.5 text-left ${active ? "border-edge2 bg-card2" : "border-transparent hover:bg-card"}`}>
+            <span className="flex w-full items-center gap-[7px]">
+              {fresh.length > 0
+                ? <span aria-label="New since you last looked" className="h-[7px] w-[7px] shrink-0 rounded-full bg-ink" />
+                : <span className="w-[7px] shrink-0" />}
+              <span className="shrink-0 font-mono text-[12px] text-mut">#{pr.number}</span>
+              <span className={`min-w-0 flex-1 truncate text-[13px] ${active || fresh.length > 0 ? "font-semibold text-ink" : "text-soft"}`}>{pr.title}</span>
+              {pr.checks !== "NONE" && <CheckDot tone={checkTone[pr.checks] ?? "skip"} label={checkLabel[pr.checks] ?? `Checks: ${pr.checks.toLowerCase()}`} />}
             </span>
-            <span className="flex items-center gap-1.5 truncate text-[10px] text-dim">
+            <span className="truncate pl-[14px] text-[12px] text-mut">
               {pr.repo.split("/")[1] ?? pr.repo}{pr.author && ` · ${pr.author}`}
-              {pr.mergeable === "CONFLICTING" && <span className="text-red">· merge conflicts</span>}
-              {note && <span className="text-orange">· {note}</span>}
+              {pr.mergeable === "CONFLICTING" && <span className="text-red"> · merge conflicts</span>}
+              {note && <span className="text-orange"> · {note}</span>}
+              {known && known.unresolvedThreads > 0 && ` · ${known.unresolvedThreads} open thread${known.unresolvedThreads === 1 ? "" : "s"}`}
+              {fresh.length > 0 && ` · ${fresh.join(", ")}`}
             </span>
-            {known && (
-              <span className="flex items-center gap-1.5 truncate text-[10px] text-dim">
-                <span className="flex min-w-0"><MovePill move={moveOf(known, activity!.viewer, requested)} /></span>
-                {known.unresolvedThreads > 0 && <span className="text-orange">· {known.unresolvedThreads} open</span>}
-                {fresh.length > 0 && <span className="truncate text-accent">· {fresh.join(", ")}</span>}
+            {(known || agent) && (
+              <span className="flex flex-wrap items-center gap-1.5 pl-[14px]">
+                {known && <MovePill move={moveOf(known, activity!.viewer, requested)} />}
+                {agent && <AgentChip agent={agent} />}
               </span>
             )}
-            {agent && <span className="flex"><AgentChip agent={agent} /></span>}
           </button>
         );
       })}
@@ -170,34 +178,41 @@ export function ReviewsView({ visible }: { visible: boolean }) {
 
   return (
     <div className={`${visible ? "flex" : "hidden"} min-h-0 min-w-0 flex-1 flex-col`}>
-      <div className="flex items-center gap-3 border-b border-edge px-6 py-3">
-        {linked && <button aria-label="Back" title={linked.fromPage ? "Back to where this PR was opened" : "Back to the review queue"} onClick={() => { setLinked(undefined); if (linked.fromPage) navigateBack(); }} className="-ml-1.5 rounded px-1.5 py-0.5 text-[11px] text-dim hover:bg-card2 hover:text-ink">‹ Back</button>}
-        <span className="font-bold text-ink">Reviews</span>
-        <span className="text-[11px] text-dim">{queue.length === 0 ? "nothing waiting on you" : position < 0 ? `not in your queue · ${queue.length} waiting` : `${position + 1} of ${queue.length}`}</span>
-        {/* One chip: what just arrived beats the standing review state. */}
-        {current && (arrived?.key === prKey(current)
-          ? <span title={arrived.news.join("\n")} className="truncate rounded border border-accent/40 px-1.5 py-0.5 font-sans text-[10px] text-accent">new: {arrived.news.join(" · ")}</span>
-          : reviewedPrs.has(prKey(current)) && (reviewedPrs.get(prKey(current))
-            ? <span title="You reviewed this and the author has pushed since" className="rounded border border-orange/40 px-1.5 py-0.5 font-sans text-[10px] text-orange">new since your review</span>
-            : <span title="You reviewed this; nothing new since" className="rounded border border-edge3 px-1.5 py-0.5 font-sans text-[10px] text-dim">reviewed</span>))}
-        {issue && (
-          <button onClick={() => window.open(issue.url)} className="flex min-w-0 items-center gap-1.5 truncate font-sans text-[11px] text-body hover:text-ink" title={`Open ${issue.key}`}>
-            <Icon name="issue" size={11} className="text-dim" /><span className="text-mut">{issue.key}</span><span className="truncate">{issue.summary}</span><span className="shrink-0 text-dim">· {issue.statusName}</span>
+      <PageHeader
+        title="Reviews"
+        lead={linked && (
+          <button aria-label="Back" title={linked.fromPage ? "Back to where this PR was opened" : "Back to the review queue"} onClick={() => { setLinked(undefined); if (linked.fromPage) navigateBack(); }}
+            className="-ml-2 inline-flex h-7 shrink-0 items-center gap-1 rounded-md pl-1 pr-2 text-[12px] text-body hover:bg-card2 hover:text-ink">
+            <Icon name="chevronRight" size={14} className="rotate-180" />{linked.fromPage ? "Back" : "Queue"}
           </button>
         )}
-        {current && reviewed?.key === prKey(current) && <span className={`text-[11px] ${reviewed.event === "APPROVE" ? "text-green" : "text-red"}`}>{reviewed.event === "APPROVE" ? "✓ approved" : "✗ changes requested"}</span>}
-        <span className="ml-auto flex items-center gap-1 text-[11px] text-dim">
-          <button aria-label="Previous review" title="Previous (p)" disabled={position <= 0} onClick={() => go(-1)} className="rounded px-1.5 py-0.5 hover:bg-card2 hover:text-ink disabled:opacity-30">‹ prev</button>
-          <button aria-label="Next review" title="Next (n)" disabled={position < 0 || position >= queue.length - 1} onClick={() => go(1)} className="rounded px-1.5 py-0.5 hover:bg-card2 hover:text-ink disabled:opacity-30">next ›</button>
-          <button onClick={toggleRail} aria-pressed={rail} aria-label="Toggle pull request list" title="All open pull requests" className={`rounded p-1 ${rail ? "bg-card2 text-soft" : "text-dim hover:text-ink"}`}><Icon name="sidebar" size={14} /></button>
-        </span>
-      </div>
+        sub={<>
+          <span className={`shrink-0 text-[12px] ${queue.length > 0 && position >= 0 ? "font-mono" : ""}`}>{queue.length === 0 ? "nothing waiting on you" : position < 0 ? `not in your queue · ${queue.length} waiting` : `${position + 1} of ${queue.length}`}</span>
+          {issue && (
+            <button onClick={() => window.open(issue.url)} title={`Open ${issue.key}`}
+              className="inline-flex h-7 min-w-0 items-center gap-2 rounded-md border border-edge px-2.5 text-[12px] text-soft hover:border-edge2 hover:text-ink">
+              <span className="shrink-0 font-mono text-body">{issue.key}</span><span className="truncate">{issue.summary}</span><span className="shrink-0 text-mut">· {issue.statusName}</span>
+            </button>
+          )}
+          {/* One chip: what just arrived beats the standing review state. */}
+          {current && (arrived?.key === prKey(current)
+            ? <span title={arrived.news.join("\n")} className="inline-flex min-w-0 items-center gap-1.5 text-[12px] font-medium text-ink"><span className="h-[7px] w-[7px] shrink-0 rounded-full bg-ink" /><span className="truncate">new: {arrived.news.join(" · ")}</span></span>
+            : reviewedPrs.has(prKey(current)) && (reviewedPrs.get(prKey(current))
+              ? <span title="You reviewed this and the author has pushed since" className="inline-flex shrink-0 items-center gap-1.5 text-[12px] text-orange"><span className="h-[7px] w-[7px] rounded-full bg-orange" />new since your review</span>
+              : <span title="You reviewed this; nothing new since" className="shrink-0 text-[12px] text-mut">reviewed</span>))}
+          {current && reviewed?.key === prKey(current) && <span className={`shrink-0 text-[12px] ${reviewed.event === "APPROVE" ? "text-green" : "text-red"}`}>{reviewed.event === "APPROVE" ? "✓ approved" : "✗ changes requested"}</span>}
+        </>}
+      >
+        <HeaderButton aria-label="Previous review" title="Previous (p)" disabled={position <= 0} onClick={() => go(-1)}>Prev <kbd className="font-mono text-[11px] text-body">p</kbd></HeaderButton>
+        <HeaderButton aria-label="Next review" title="Next (n)" disabled={position < 0 || position >= queue.length - 1} onClick={() => go(1)}>Next <kbd className="font-mono text-[11px] text-body">n</kbd></HeaderButton>
+        <HeaderButton onClick={toggleRail} aria-pressed={rail} aria-label="Toggle pull request list" title="All open pull requests" className={rail ? "bg-card2" : ""}><Icon name="sidebar" size={14} /></HeaderButton>
+      </PageHeader>
       <div className="flex min-h-0 min-w-0 flex-1">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {current ? (
             <PrScreen key={prKey(current)} embedded hidden={!visible} pr={toIssuePr(current)} issue={issue} onClose={() => {}} onReviewed={onReviewed} />
           ) : (
-            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-[12px] text-dim">
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-[13px] text-mut">
               <Icon name="check" size={20} className="text-green" />
               {needsColumn
                 ? "Pick the board column the reviews queue reads in Settings → Board."
@@ -206,13 +221,13 @@ export function ReviewsView({ visible }: { visible: boolean }) {
           )}
         </div>
         {rail && (
-          <aside aria-label="Open pull requests" className="flex w-[268px] shrink-0 flex-col overflow-y-auto border-l border-edge font-sans">
-            <PrList title={source === "board" ? "In the review column" : "Needs your review"} prs={lists.waiting} current={current} onPick={pick}
+          <aside aria-label="Open pull requests" className="flex w-[296px] shrink-0 flex-col overflow-y-auto border-l border-edge bg-panel px-2.5 py-3.5">
+            <PrList title={source === "board" ? "In the review column" : "Needs your review"} urgent prs={lists.waiting} current={current} onPick={pick}
               badge={(pr) => (pr.newSinceReview ? "new since your review" : undefined)} activity={activity} seen={seen} links={links} board={board} requested={requested} />
             <PrList title="You reviewed" prs={alsoReviewed} current={current} onPick={pick}
               badge={(pr) => (pr.newSinceReview ? "new since your review" : undefined)} activity={activity} seen={seen} links={links} board={board} requested={requested} />
             <PrList title="Your PRs" prs={lists.mine} current={current} onPick={pick} activity={activity} seen={seen} links={links} board={board} requested={requested} />
-            {browsable.length === 0 && <p className="px-4 py-3 text-[11px] text-dim">{loaded ? "No open pull requests." : "Waiting for GitHub…"}</p>}
+            {browsable.length === 0 && <p className="px-2 py-1 text-[12px] text-mut">{loaded ? "No open pull requests." : "Waiting for GitHub…"}</p>}
           </aside>
         )}
       </div>

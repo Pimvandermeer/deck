@@ -6,11 +6,12 @@ import { Icon } from "../board/icons.js";
 export const statusLabels: Record<AgentSession["status"], string> = {
   working: "Working", needs_input: "Needs input", needs_review: "Needs review", idle: "Ready", ended: "Ended",
 };
-/** Colour per status, shared by the sidebar, the board and the activity page. */
+/** Colour per status, shared by the sidebar, the board and the activity page.
+ *  An agent waiting on the user is the user's move, so both waits are orange. */
 export const statusTones: Record<AgentSession["status"], { text: string }> = {
   working: { text: "text-accent" },
   needs_input: { text: "text-orange" },
-  needs_review: { text: "text-blue" },
+  needs_review: { text: "text-orange" },
   idle: { text: "text-green" },
   ended: { text: "text-dim" },
 };

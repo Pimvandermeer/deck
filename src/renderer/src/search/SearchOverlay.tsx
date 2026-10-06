@@ -161,12 +161,12 @@ export function SearchOverlay({ onClose, onPreview, onView, onSettings, onSideba
             placeholder="Search sessions, history, commands, settings, repos…"
             className="flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-dim"
           />
-          <span className="rounded border border-edge2 px-1.5 py-px text-[10px] text-dim">esc</span>
+          <span className="rounded border border-edge2 px-1.5 py-px text-[11px] text-dim">esc</span>
         </div>
         <div className="overflow-y-auto p-1.5">
           {groups.map((g) => (
             <div key={g.label}>
-              <div className="px-3 pb-1 pt-2 text-[10px] tracking-widest text-dim">{g.label}</div>
+              <div className="px-3 pb-1 pt-2 text-[11px] tracking-widest text-dim">{g.label}</div>
               {g.items.map((item) => {
                 idx++;
                 const i = idx;
@@ -185,7 +185,7 @@ export function SearchOverlay({ onClose, onPreview, onView, onSettings, onSideba
                   >
                     <span className={`w-4 text-center ${item.iconColor}`}>{item.icon}</span>
                     <span className="flex-1 truncate text-xs text-soft">{item.title}</span>
-                    <span className="shrink-0 text-[10px] text-dim">{item.meta}</span>
+                    <span className="shrink-0 text-[11px] text-dim">{item.meta}</span>
                   </button>
                 );
               })}
@@ -197,7 +197,7 @@ export function SearchOverlay({ onClose, onPreview, onView, onSettings, onSideba
             </div>
           )}
         </div>
-        <div className="flex gap-4 border-t border-edge2 px-4.5 py-2.5 text-[10px] text-dim">
+        <div className="flex gap-4 border-t border-edge2 px-4.5 py-2.5 text-[11px] text-dim">
           <span>↑↓ navigate</span>
           <span>⏎ open</span>
           <span>⌘⏎ open in new session</span>

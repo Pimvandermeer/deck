@@ -109,7 +109,7 @@ function Gap({
   const stepped = lines === null || lines > EXPAND_STEP * 2;
   return (
     <Decoration className="deck-gap">
-      <div className="flex items-center justify-center gap-1 text-[10px] text-dim">
+      <div className="flex items-center justify-center gap-1 text-[11px] text-dim">
         {stepped && onUp && (
           <button onClick={onUp} title={`Expand ${EXPAND_STEP} lines down`} className="rounded px-1.5 hover:bg-card2 hover:text-ink">
             <Icon name="expandDown" size={11} />
@@ -472,7 +472,7 @@ function FileDiff({
             onOpenComposer({ path, line, side: commentSide }, e.shiftKey);
           }}
           title="Comment on this line — drag over line numbers for a range"
-          className="absolute ml-0.5 rounded bg-accent px-1 text-[10px] font-bold text-bg"
+          className="absolute ml-0.5 rounded bg-accent px-1 text-[11px] font-bold text-bg"
         >
           +
         </button>
@@ -508,7 +508,7 @@ function FileDiff({
       >
         <button
           onClick={onToggleCollapsed}
-          className="w-4 text-[10px] text-dim hover:text-ink"
+          className="w-4 text-[11px] text-dim hover:text-ink"
           title={collapsed ? "Expand file" : "Collapse file"}
         >
           <Icon name={collapsed ? "chevronRight" : "chevronDown"} size={11} />
@@ -518,11 +518,11 @@ function FileDiff({
         {file.type === "rename" && (
           <span className="truncate font-sans text-[11px] text-dim">renamed from {file.oldPath}</span>
         )}
-        {file.type === "add" && <span className="rounded bg-green/15 px-1 text-[9px] text-green">new</span>}
-        {file.type === "delete" && <span className="rounded bg-red/15 px-1 text-[9px] text-red">deleted</span>}
+        {file.type === "add" && <span className="rounded bg-green/15 px-1 text-[10px] text-green">new</span>}
+        {file.type === "delete" && <span className="rounded bg-red/15 px-1 text-[10px] text-red">deleted</span>}
         {comments.length > 0 && (
           <span
-            className={`rounded px-1.5 text-[10px] ${
+            className={`rounded px-1.5 text-[11px] ${
               comments.some((c) => !c.resolved && !c.outdated) ? "bg-orange/15 text-orange" : "bg-card2 text-dim"
             }`}
             title="Review comments on this file"
@@ -531,7 +531,7 @@ function FileDiff({
           </span>
         )}
         {drafts.length > 0 && (
-          <span className="rounded bg-accent/15 px-1.5 text-[10px] text-accent">
+          <span className="rounded bg-accent/15 px-1.5 text-[11px] text-accent">
             <Icon name="pencil" size={10} /> {drafts.length}
           </span>
         )}
@@ -549,7 +549,7 @@ function FileDiff({
             className="h-3 w-3 accent-green"
           />
           Reviewed
-          {active && <kbd className="rounded border border-edge2 px-1 text-[9px] text-dim">v</kbd>}
+          {active && <kbd className="rounded border border-edge2 px-1 text-[10px] text-dim">v</kbd>}
         </label>
         <button
           onClick={() => window.open(githubUrl)}
@@ -705,7 +705,7 @@ export function PrDiffTab(props: PrDiffTabProps) {
         <span className="ml-auto text-[11px] text-dim">
           {files.length > 0 && `${reviewedCount}/${files.length} reviewed`}
         </span>
-        <div className="ml-2 flex overflow-hidden rounded-md border border-edge2 text-[10px]">
+        <div className="ml-2 flex overflow-hidden rounded-md border border-edge2 text-[11px]">
           {(["unified", "split"] as const).map((v) => (
             <button
               key={v}

@@ -66,7 +66,7 @@ export function ChangesPanel({
         <span className="text-xs font-bold text-ink">
           {session?.status === "needs_review" ? "needs review" : "changes"}
         </span>
-        <span className="truncate text-[10px] text-dim">{cwd}</span>
+        <span className="truncate text-[11px] text-dim">{cwd}</span>
         <button onClick={() => void refresh()} title="Refresh" className="ml-auto text-dim hover:text-ink">
           ↻
         </button>
@@ -78,7 +78,7 @@ export function ChangesPanel({
       <div className="min-h-0 flex-1 overflow-y-auto">
         {session?.review_note && (
           <div className="border-b border-edge px-3 py-2.5">
-            <div className="pb-1 text-[10px] tracking-widest text-orange">DECISIONS</div>
+            <div className="pb-1 text-[11px] tracking-widest text-orange">DECISIONS</div>
             <div className="whitespace-pre-wrap font-sans text-[11px] leading-relaxed text-body">
               {session.review_note}
             </div>

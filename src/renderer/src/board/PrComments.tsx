@@ -136,7 +136,7 @@ export function ThreadCard({
                 )}
                 <Avatar name={comment.author} />
                 <span className="font-semibold text-soft">{comment.author}</span>
-                {comment.isBot && <span className="rounded bg-card2 px-1 text-[10px] text-dim">bot</span>}
+                {comment.isBot && <span className="rounded bg-card2 px-1 text-[11px] text-dim">bot</span>}
                 <span className="text-dim">{relativeTime(comment.createdAt)}</span>
                 {i === 0 && comment.resolved && <span className="text-green">resolved</span>}
                 {i === 0 && comment.outdated && !comment.resolved && (
@@ -147,7 +147,7 @@ export function ThreadCard({
                     <button
                       onClick={() => actions.onSendToAgent!(comments)}
                       title="Put this thread in the agent composer above"
-                      className="flex items-center gap-1 rounded border border-edge2 px-1.5 py-0.5 text-[10px] text-mut hover:border-accent/50 hover:text-accent"
+                      className="flex items-center gap-1 rounded border border-edge2 px-1.5 py-0.5 text-[11px] text-mut hover:border-accent/50 hover:text-accent"
                     >
                       <Icon name="sparkle" size={9} /> Send to agent
                     </button>
@@ -158,7 +158,7 @@ export function ThreadCard({
                         actions.onResolve(comment.threadId!, !comment.resolved);
                         if (!comment.resolved) setCollapsed(true);
                       }}
-                      className="rounded border border-edge2 px-1.5 py-0.5 text-[10px] text-mut hover:border-edge3 hover:text-ink"
+                      className="rounded border border-edge2 px-1.5 py-0.5 text-[11px] text-mut hover:border-edge3 hover:text-ink"
                     >
                       {comment.resolved ? "Unresolve" : "Resolve"}
                     </button>
@@ -220,7 +220,7 @@ export type Draft = ReviewDraft;
 export function DraftCard({ draft, onDelete }: { draft: Draft; onDelete: () => void }) {
   return (
     <div className="mx-2 my-1.5 rounded-lg border border-accent/40 bg-card px-3 py-2">
-      <div className="flex items-center gap-2 text-[10px]">
+      <div className="flex items-center gap-2 text-[11px]">
         <span className="rounded bg-accent/15 px-1 text-accent">draft</span>
         {draft.startLine && draft.startLine < draft.line && (
           <span className="text-dim">
