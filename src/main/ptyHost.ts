@@ -92,6 +92,9 @@ function exitIfIdle(): void {
   }
 }
 
+// macOS reports the bare name; Linux reports argv[0] as typed ("/bin/bash", "./codex").
+const processName = (proc: IPty): string => proc.process.split("/").pop() ?? proc.process;
+
 function create(spawn: SpawnRequest): TermMeta {
   const id = randomUUID();
   const proc = pty.spawn(spawn.shell, spawn.args, {
@@ -102,7 +105,7 @@ function create(spawn: SpawnRequest): TermMeta {
     env: { ...spawn.env, DECK_TERM_ID: id },
   });
   const shell = spawn.shell.split("/").pop();
-  const meta: TermMeta = { id, cwd: spawn.cwd, foregroundProcess: proc.process, busy: proc.process !== shell, command: spawn.command, issueKey: spawn.issueKey, agent: spawn.agent, sessionId: spawn.sessionId, prompt: spawn.prompt, windowRole: spawn.windowRole, workspace: spawn.workspace };
+  const meta: TermMeta = { id, cwd: spawn.cwd, foregroundProcess: processName(proc), busy: processName(proc) !== shell, command: spawn.command, issueKey: spawn.issueKey, agent: spawn.agent, sessionId: spawn.sessionId, prompt: spawn.prompt, windowRole: spawn.windowRole, workspace: spawn.workspace };
   const term: Term = { proc, meta, shell, chunks: [], buffered: 0 };
 
   proc.onData((data) => {
@@ -128,7 +131,7 @@ function create(spawn: SpawnRequest): TermMeta {
 // Poll the PTY's foreground process even when it produces no output.
 setInterval(() => {
   for (const term of terms.values()) {
-    const foregroundProcess = term.proc.process;
+    const foregroundProcess = processName(term.proc);
     if (foregroundProcess === term.meta.foregroundProcess) continue;
     term.meta.foregroundProcess = foregroundProcess;
     term.meta.busy = foregroundProcess !== term.shell;

@@ -132,7 +132,7 @@ export function SearchOverlay({ onClose, onPreview, onView, onSettings, onSideba
         e.preventDefault();
         const item = flat[sel];
         if (item) {
-          item.open(e.metaKey);
+          item.open(e.metaKey || e.ctrlKey);
           onClose();
         }
       }
@@ -175,7 +175,7 @@ export function SearchOverlay({ onClose, onPreview, onView, onSettings, onSideba
                     key={`${g.label}${i}`}
                     aria-label={item.title}
                     onClick={(e) => {
-                      item.open(e.metaKey);
+                      item.open(e.metaKey || e.ctrlKey);
                       onClose();
                     }}
                     onMouseMove={() => setSel(i)}

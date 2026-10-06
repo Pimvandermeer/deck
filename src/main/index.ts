@@ -44,6 +44,18 @@ import {
   startPrInbox,
   stopPrInbox,
 } from "./prInbox.js";
+import { lastWords, listAgentLinks, pastSessionsFor, sendToAgent } from "./agentLinks.js";
+import {
+  getActivitySeen,
+  getBoardActivity,
+  markActivitySeen,
+  onActivitySeenChanged,
+  onBoardActivityChanged,
+  refreshBoardActivity,
+  startBoardActivity,
+  stopBoardActivity,
+  type SeenTarget,
+} from "./boardActivity.js";
 import { hooksInstalled, installHooks } from "./hooksInstall.js";
 import {
   getIndexProgress,
@@ -269,9 +281,9 @@ function hideWindow(w: BrowserWindow): void {
   }
   quakeWins.delete(w);
   w.hide();
-  // Only leave the app when no other deck window stays visible.
+  // Only leave the app when no other deck window stays visible; app.hide exists on macOS only.
   if (BrowserWindow.getAllWindows().every((other) => !other.isVisible()))
-    app.hide();
+    app.hide?.();
 }
 
 /** Warp-style quake panel: full width, docked to the top of the screen the
@@ -476,6 +488,23 @@ app.whenReady().then(async () => {
   ipcMain.handle("inbox:refresh", () =>
     refreshPrInbox().catch(() => getPrInbox()),
   );
+  startBoardActivity();
+  onBoardActivityChanged((activity) => broadcast("activity:changed", activity));
+  onActivitySeenChanged((seen) => broadcast("activity:seenChanged", seen));
+  ipcMain.handle("activity:get", () => getBoardActivity());
+  ipcMain.handle("activity:refresh", () =>
+    refreshBoardActivity().catch(() => getBoardActivity()),
+  );
+  ipcMain.handle("activity:seen", () => getActivitySeen());
+  ipcMain.handle("agents:links", () => listAgentLinks());
+  ipcMain.handle("agents:lastWords", (_e, sessionId: string) => lastWords(sessionId));
+  ipcMain.handle("agents:past", (_e, prKeys: string[]) => pastSessionsFor(prKeys));
+  ipcMain.handle("agents:send", (_e, sessionId: string, text: string) =>
+    sendToAgent(sessionId, text),
+  );
+  ipcMain.handle("activity:markSeen", (_e, target: SeenTarget) =>
+    markActivitySeen(target),
+  );
   startPrWarmer();
   onPrsChanged((key, prs) => broadcast("prs:changed", key, prs));
   startBoardSync();
@@ -589,8 +618,11 @@ app.whenReady().then(async () => {
     if ("activeWorkspace" in patch || "workspaces" in patch) {
       broadcast("board:changed", getBoardCache());
       broadcast("inbox:changed", getPrInbox());
+      broadcast("activity:changed", getBoardActivity());
+      broadcast("activity:seenChanged", getActivitySeen());
       void syncBoard().catch(() => {});
       void refreshPrInbox().catch(() => {});
+      void refreshBoardActivity().catch(() => {});
     }
     if ("summonHotkey" in patch || "summonHotkeyEnabled" in patch)
       applyHotkey();
@@ -618,6 +650,7 @@ app.on("will-quit", () => {
   if (app.isReady()) globalShortcut.unregisterAll();
   stopServer();
   stopPrInbox();
+  stopBoardActivity();
   stopExtensions();
   stopPtyHost();
 });

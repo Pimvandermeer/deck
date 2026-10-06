@@ -6,17 +6,18 @@ import { AgentPage } from "./agents/AgentPage.js";
 import { ChatProvider } from "./agents/ChatStore.js";
 import { BoardView } from "./board/BoardView.js";
 import { ReviewsView } from "./board/ReviewsView.js";
+import { ActivityView } from "./board/ActivityView.js";
 import { SettingsView, type SettingsSection } from "./chrome/SettingsView.js";
 import { SettingsProvider, useSettings } from "./lib/useSettings.js";
 import { isRecordingKeys } from "./lib/useKeybinds.js";
-import { matchKeybind, resolveKeybinds, type KeybindCommand } from "../../shared/keybinds.js";
+import { matchKeybind, resolveKeybinds, tabSwitchIndex, type KeybindCommand } from "../../shared/keybinds.js";
 import { defaultSettings } from "../../shared/settings.js";
 import { fontSize as safeFontSize } from "../../shared/terminal.js";
 import { useTerminalAppearance } from "./lib/useTerminalAppearance.js";
 import { Onboarding } from "./chrome/Onboarding.js";
 import { Sidebar } from "./chrome/Sidebar.js";
 import { Titlebar } from "./chrome/Titlebar.js";
-import { onOpenTerminalTab, requestNavBack } from "./lib/bus.js";
+import { onFocusTerminal, onOpenTerminalTab, requestNavBack } from "./lib/bus.js";
 import { SearchOverlay } from "./search/SearchOverlay.js";
 import { WorktreeClosePrompt } from "./chrome/WorktreeClosePrompt.js";
 import { SearchView } from "./search/SearchView.js";
@@ -24,7 +25,7 @@ import { TabProvider, useTabs } from "./store.js";
 import { TerminalView } from "./terminal/TerminalView.js";
 import { TipsProvider } from "./tips/TipsProvider.js";
 
-export type View = "terminal" | "board" | "agent" | "reviews" | "search" | "settings";
+export type View = "terminal" | "board" | "agent" | "reviews" | "activity" | "search" | "settings";
 
 export default function App() {
   return (
@@ -125,6 +126,7 @@ function Shell() {
 
   // Opening a tab from anywhere lands back in the terminal.
   useEffect(() => onOpenTerminalTab(() => setView("terminal")), [setView]);
+  useEffect(() => onFocusTerminal((termId) => { focusTab(termId); setView("terminal"); }), [focusTab, setView]);
 
   const openPreview = useCallback((sessionId: string, query: string) => {
     setPreview({ sessionId, query });
@@ -141,6 +143,7 @@ function Shell() {
     else if (command === "view.board") setView("board");
     else if (command === "view.agent") setView("agent");
     else if (command === "view.reviews") setView("reviews");
+    else if (command === "view.activity") setView("activity");
     else if (command === "zen") setMode(mode === "zen" ? "normal" : "zen");
     else if (command === "presentation") setMode(mode === "presentation" ? "normal" : "presentation");
     else if (command === "workspace.next" || command === "workspace.prev") {
@@ -188,8 +191,9 @@ function Shell() {
         return;
       }
       if (searchOpen) return; // the overlay handles its own keys
-      if (e.metaKey && !e.shiftKey && !e.altKey && /^[1-9]$/.test(e.key)) {
-        const tab = tabs[Number(e.key) - 1];
+      const position = tabSwitchIndex(e);
+      if (position) {
+        const tab = tabs[position - 1];
         if (tab) { focusTab(tab.termId); setView("terminal"); }
       } else if (!command || !runCommand(command)) {
         return;
@@ -221,6 +225,7 @@ function Shell() {
           <AgentPage visible={view === "agent"} />
           <ReviewsView visible={view === "reviews"} />
           {view === "board" && <BoardView />}
+          {view === "activity" && <ActivityView />}
           {view === "settings" && <SettingsView section={settingsSection} onSection={setSettingsSection} />}
           </div>
         </main>

@@ -40,7 +40,7 @@ export interface PaletteActionProps {
 /** Chromium zoom levels: 0 is 100% and each level scales by 1.2. Electron's own zoom menu steps by half a level. */
 const ZOOM_STEP = 0.5;
 const ZOOM_LIMIT = 3;
-const pages: DefaultView[] = ["terminal", "board", "agent", "reviews"];
+const pages: DefaultView[] = ["terminal", "board", "agent", "reviews", "activity"];
 const agents = Object.keys(agentLabels) as Agent[];
 const cursorStyles: { id: CursorStyle; label: string }[] = [{ id: "block", label: "Block" }, { id: "underline", label: "Underline" }, { id: "bar", label: "Bar" }];
 const sectionKeywords: Record<SettingsSection, string> = {

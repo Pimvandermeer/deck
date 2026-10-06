@@ -151,7 +151,7 @@ export function TerminalView({ visible }: { visible: boolean }) {
         {!tabs.length && <div className="flex h-full items-center justify-center font-sans text-xs text-dim">⌘T to open a terminal</div>}
       </div>
       {composer && <div className="workbench-chrome mx-4 mb-3 rounded-lg border border-edge3 bg-card px-3 py-2">
-        <textarea aria-label="Command editor" autoFocus rows={3} value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && event.metaKey) { event.preventDefault(); submit(); } }} placeholder="Write a command or paste a multiline prompt…" className="w-full resize-y bg-transparent font-mono text-xs leading-5 text-soft outline-none placeholder:text-dim" />
+        <textarea aria-label="Command editor" autoFocus rows={3} value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); submit(); } }} placeholder="Write a command or paste a multiline prompt…" className="w-full resize-y bg-transparent font-mono text-xs leading-5 text-soft outline-none placeholder:text-dim" />
         <div className="flex items-center gap-2 font-sans text-[10px] text-dim"><span>Send to active terminal</span><button className="ml-auto text-mut" onClick={() => setComposer(false)}>Close</button><button disabled={!command.trim()} onClick={submit} className="rounded border border-edge3 px-2 py-1 text-soft disabled:opacity-30">Send ⌘↵</button></div>
       </div>}
       <footer className="workbench-chrome flex h-10 shrink-0 items-center gap-2 border-t border-edge px-4 font-sans text-[11px] text-mut">

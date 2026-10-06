@@ -1,9 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { IssuePr, ReviewEvent } from "../../../main/github.js";
 import type { InboxPr } from "../../../main/prInbox.js";
+import { ballFrom, ballText, type ActivitySeen, type BoardActivity, type Stance } from "../../../shared/activity.js";
 import { prKey } from "../../../shared/prs.js";
 import { onOpenPullRequest, type OpenPrDetail } from "../lib/bus.js";
 import { issueFor, useReviewQueue } from "../lib/reviews.js";
+import { prNews, useBoardActivity } from "../lib/useActivity.js";
+import { useAgentLinks } from "../lib/useAgentLinks.js";
+import { usePrInbox } from "../lib/useInbox.js";
+import { agentsForPr, type AgentLink } from "../../../shared/agentLinks.js";
+import type { BoardCache } from "../../../main/board/types.js";
+import { AgentChip } from "./AgentLinks.js";
 import { Icon } from "./icons.js";
 import { PrScreen } from "./PrScreen.js";
 
@@ -20,24 +27,39 @@ const toIssuePr = (pr: InboxPr): IssuePr => ({ repo: pr.repo, number: pr.number,
 const checkTone: Record<string, string> = { SUCCESS: "text-green", FAILURE: "text-red", ERROR: "text-red", PENDING: "text-orange" };
 const checkLabel: Record<string, string> = { SUCCESS: "Checks passed", FAILURE: "Checks failed", ERROR: "Checks errored", PENDING: "Checks running", EXPECTED: "Checks expected" };
 
-function PrList({ title, prs, current, badge, onPick }: {
+const ballTone: Record<Stance, string> = { you: "text-orange", them: "text-blue", others: "text-dim", done: "text-dim" };
+
+function PrList({ title, prs, current, badge, onPick, activity, seen, links = [], board, requested }: {
   title: string;
   prs: InboxPr[];
   current?: InboxPr;
   badge?: (pr: InboxPr) => string | undefined;
   onPick: (pr: InboxPr) => void;
+  activity?: BoardActivity;
+  seen?: ActivitySeen;
+  links?: AgentLink[];
+  board?: BoardCache;
+  requested?: Set<string>;
 }) {
   if (prs.length === 0) return null;
+  const news = new Map(prs.map((pr) => [prKey(pr), prNews(pr, activity, seen)]));
+  // New ones first; sort is stable, so the inbox order holds within each part.
+  const ordered = [...prs].sort((a, b) => Number(news.get(prKey(b))!.length > 0) - Number(news.get(prKey(a))!.length > 0));
   return (
     <section aria-label={title} className="flex flex-col gap-1 px-3 py-2.5">
       <h3 className="flex items-center gap-2 px-1 text-[10px] tracking-widest text-dim">{title.toUpperCase()}<span className="text-mut">{prs.length}</span></h3>
-      {prs.map((pr) => {
+      {ordered.map((pr) => {
         const active = current && pr.repo === current.repo && pr.number === current.number;
         const note = badge?.(pr);
+        const fresh = news.get(prKey(pr))!;
+        const known = activity?.prs[prKey(pr)];
+        const ball = known && ballFrom(known, activity!.viewer, requested?.has(prKey(pr)));
+        const agent = agentsForPr(pr, issueFor(pr, board)?.key, links)[0];
         return (
-          <button key={prKey(pr)} onClick={() => onPick(pr)} title={`${pr.title}\n${prKey(pr)}`}
+          <button key={prKey(pr)} onClick={() => onPick(pr)} title={`${pr.title}\n${prKey(pr)}${fresh.length ? `\nNew: ${fresh.join(", ")}` : ""}`}
             className={`flex flex-col gap-0.5 rounded-lg border px-2.5 py-1.5 text-left ${active ? "border-accent bg-card" : "border-transparent hover:border-edge2 hover:bg-card"}`}>
             <span className="flex items-center gap-1.5 text-[11px]">
+              {fresh.length > 0 && <span aria-label="New since you last looked" className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}
               <span className="text-dim">#{pr.number}</span>
               <span className="min-w-0 flex-1 truncate text-soft">{pr.title}</span>
               {pr.checks !== "NONE" && (
@@ -49,6 +71,14 @@ function PrList({ title, prs, current, badge, onPick }: {
               {pr.mergeable === "CONFLICTING" && <span className="text-red">· merge conflicts</span>}
               {note && <span className="text-orange">· {note}</span>}
             </span>
+            {known && (
+              <span className="flex items-center gap-1.5 truncate text-[10px] text-dim">
+                <span className={`truncate ${ballTone[ball!.stance]} ${ball!.stance === "you" ? "font-bold" : ""}`} title="Whose move it is">▸ {ballText(ball!)}</span>
+                {known.unresolvedThreads > 0 && <span className="text-orange">· {known.unresolvedThreads} open</span>}
+                {fresh.length > 0 && <span className="truncate text-accent">· {fresh.join(", ")}</span>}
+              </span>
+            )}
+            {agent && <span className="flex"><AgentChip agent={agent} /></span>}
           </button>
         );
       })}
@@ -58,6 +88,12 @@ function PrList({ title, prs, current, badge, onPick }: {
 
 export function ReviewsView({ visible }: { visible: boolean }) {
   const { queue, board, loaded, reviewed: reviewedPrs, lists, source, needsColumn } = useReviewQueue();
+  const { activity, seen } = useBoardActivity();
+  const links = useAgentLinks();
+  const inbox = usePrInbox();
+  const requested = useMemo(() => new Set((inbox?.reviewRequested ?? []).map(prKey)), [inbox]);
+  // What was new when the PR came up, kept after it is marked seen.
+  const [arrived, setArrived] = useState<{ key: string; news: string[] }>();
   const [index, setIndex] = useState(0);
   const [picked, setPicked] = useState<string>();
   const [rail, setRail] = useState(() => localStorage.getItem("deck.reviews.rail") !== "hidden");
@@ -102,6 +138,18 @@ export function ReviewsView({ visible }: { visible: boolean }) {
     void window.deck.inbox.refresh();
   };
 
+  // Marked seen after a short look, so stepping through with n/p does not
+  // clear everything it passes.
+  const currentKey = current ? prKey(current) : undefined;
+  const currentNews = current ? prNews(current, activity, seen) : [];
+  useEffect(() => {
+    if (arrived && arrived.key !== currentKey) setArrived(undefined);
+    if (!visible || !currentKey || currentNews.length === 0) return;
+    setArrived({ key: currentKey, news: currentNews });
+    const timer = setTimeout(() => void window.deck.activity.markSeen({ prs: [currentKey] }), 1500);
+    return () => clearTimeout(timer);
+  }, [visible, currentKey, currentNews.join("|")]);
+
   useEffect(() => {
     if (!visible) return;
     const onKey = (e: KeyboardEvent) => {
@@ -128,6 +176,7 @@ export function ReviewsView({ visible }: { visible: boolean }) {
             <Icon name="issue" size={11} className="text-dim" /><span className="text-mut">{issue.key}</span><span className="truncate">{issue.summary}</span><span className="shrink-0 text-dim">· {issue.statusName}</span>
           </button>
         )}
+        {current && arrived?.key === prKey(current) && <span title={arrived.news.join("\n")} className="truncate rounded border border-accent/40 px-1.5 py-0.5 text-[10px] text-accent">new: {arrived.news.join(" · ")}</span>}
         {current && reviewed?.key === prKey(current) && <span className={`text-[11px] ${reviewed.event === "APPROVE" ? "text-green" : "text-red"}`}>{reviewed.event === "APPROVE" ? "✓ approved" : "✗ changes requested"}</span>}
         <span className="ml-auto flex items-center gap-1 text-[11px] text-dim">
           <button aria-label="Previous review" title="Previous (p)" disabled={position <= 0} onClick={() => go(-1)} className="rounded px-1.5 py-0.5 hover:bg-card2 hover:text-ink disabled:opacity-30">‹ prev</button>
@@ -151,10 +200,10 @@ export function ReviewsView({ visible }: { visible: boolean }) {
         {rail && (
           <aside aria-label="Open pull requests" className="flex w-[268px] shrink-0 flex-col overflow-y-auto border-l border-edge font-sans">
             <PrList title={source === "board" ? "In the review column" : "Needs your review"} prs={lists.waiting} current={current} onPick={pick}
-              badge={(pr) => (pr.newSinceReview ? "new since your review" : undefined)} />
+              badge={(pr) => (pr.newSinceReview ? "new since your review" : undefined)} activity={activity} seen={seen} links={links} board={board} requested={requested} />
             <PrList title="You reviewed" prs={alsoReviewed} current={current} onPick={pick}
-              badge={(pr) => (pr.newSinceReview ? "new since your review" : undefined)} />
-            <PrList title="Your PRs" prs={lists.mine} current={current} onPick={pick} />
+              badge={(pr) => (pr.newSinceReview ? "new since your review" : undefined)} activity={activity} seen={seen} links={links} board={board} requested={requested} />
+            <PrList title="Your PRs" prs={lists.mine} current={current} onPick={pick} activity={activity} seen={seen} links={links} board={board} requested={requested} />
             {browsable.length === 0 && <p className="px-4 py-3 text-[11px] text-dim">{loaded ? "No open pull requests." : "Waiting for GitHub…"}</p>}
           </aside>
         )}

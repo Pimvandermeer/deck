@@ -3,6 +3,7 @@ import { execFile, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
 import { markInternalSession } from "./sessions.js";
+import { userShell } from "./userShell.js";
 
 const exec = promisify(execFile);
 
@@ -61,7 +62,7 @@ const resolvedBins = new Map<Agent, Promise<string>>();
 function agentBin(agent: Agent): Promise<string> {
   let resolved = resolvedBins.get(agent);
   if (!resolved) {
-    resolved = exec(process.env.SHELL ?? "/bin/zsh", ["-lc", `command -v ${agent}`], { timeout: 10_000 })
+    resolved = exec(userShell(), ["-lc", `command -v ${agent}`], { timeout: 10_000 })
       .then(({ stdout }) => stdout.trim().split("\n").pop() || agent).catch(() => agent);
     resolvedBins.set(agent, resolved);
   }

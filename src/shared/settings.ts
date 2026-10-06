@@ -125,7 +125,7 @@ export interface ExperimentSettings {
 }
 
 /** The page deck opens on. */
-export type DefaultView = "terminal" | "board" | "agent" | "reviews";
+export type DefaultView = "terminal" | "board" | "agent" | "reviews" | "activity";
 
 /** Models the orchestrator can run on: aliases claude accepts plus the full id where no alias exists. */
 export const askModels = [

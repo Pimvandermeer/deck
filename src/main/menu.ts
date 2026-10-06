@@ -46,6 +46,7 @@ export function installAppMenu(): void {
         command("Board", "view.board", keybinds),
         command("Agent", "view.agent", keybinds),
         command("Reviews", "view.reviews", keybinds),
+        command("Activity", "view.activity", keybinds),
         { type: "separator" },
         command("Zen", "zen", keybinds),
         command("Presentation", "presentation", keybinds),

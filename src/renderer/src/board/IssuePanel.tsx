@@ -5,6 +5,11 @@ import type { RepoDir } from "../../../main/providers.js";
 import type { BoardIssue } from "../../../main/board/types.js";
 import type { AgentSession } from "../../../main/sessions.js";
 import { StatusMark, statusLabels, statusTones } from "../chrome/SessionIcon.js";
+import { agentsForTicket, reasonLabel } from "../../../shared/agentLinks.js";
+import type { ActivityPr } from "../../../shared/activity.js";
+import { focusTerminal } from "../lib/bus.js";
+import { useBoardActivity } from "../lib/useActivity.js";
+import { useAgentLinks } from "../lib/useAgentLinks.js";
 import { useTabs } from "../store.js";
 
 const stateColor: Record<string, string> = {
@@ -47,6 +52,14 @@ export function IssuePanel({ issue, rejected, onClose, onOpenDiff }: IssuePanelP
     [sessions, issue.key],
   );
   const openTermIds = new Set(tabs.map((t) => t.termId));
+  // Agents working on the ticket's PRs without having been started from it:
+  // the checkout is on a PR branch, or the agent opened the PR.
+  const links = useAgentLinks();
+  const { activity } = useBoardActivity();
+  const onPrs = useMemo(() => {
+    const ticketPrs = (activity?.tickets[issue.key] ?? []).map((key) => activity?.prs[key]).filter((pr): pr is ActivityPr => Boolean(pr));
+    return agentsForTicket(issue.key, ticketPrs, links).filter((agent) => !linked.some((s) => s.session_id === agent.link.sessionId));
+  }, [activity, links, linked, issue.key]);
 
   // A PR's repo is the best guess for where the agent should work.
   useEffect(() => {
@@ -97,7 +110,7 @@ export function IssuePanel({ issue, rejected, onClose, onOpenDiff }: IssuePanelP
         </div>
 
         <div className="pt-1 text-[10px] tracking-widest text-dim">AGENTS</div>
-        {linked.length === 0 && (
+        {linked.length === 0 && onPrs.length === 0 && (
           <div className="-mt-2 text-[11px] text-dim">no agent has touched this ticket</div>
         )}
         {linked.map((s) => {
@@ -118,6 +131,24 @@ export function IssuePanel({ issue, rejected, onClose, onOpenDiff }: IssuePanelP
               <span className={`shrink-0 text-[10px] ${g.text}`}>
                 {s.term_id && openTermIds.has(s.term_id) ? "focus →" : `${statusLabels[s.status].toLowerCase()} · continue →`}
               </span>
+            </button>
+          );
+        })}
+        {onPrs.map((agent) => {
+          const g = statusTones[agent.link.status];
+          return (
+            <button
+              key={agent.link.sessionId}
+              onClick={() => focusTerminal(agent.link.termId)}
+              title="Focus session"
+              className="flex items-center gap-2.5 rounded-lg border border-edge2 bg-card px-3 py-2 text-left hover:border-edge3"
+            >
+              <span className={g.text}><StatusMark status={agent.link.status} /></span>
+              <span className="min-w-0 flex-1 truncate text-[11px] text-soft">
+                {agent.link.title ?? agent.link.sessionId.slice(0, 8)}
+                <span className="text-dim"> · {reasonLabel(agent)}</span>
+              </span>
+              <span className={`shrink-0 text-[10px] ${g.text}`}>{statusLabels[agent.link.status].toLowerCase()} · focus →</span>
             </button>
           );
         })}

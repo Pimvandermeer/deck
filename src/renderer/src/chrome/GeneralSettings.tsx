@@ -37,7 +37,7 @@ export function GeneralSettings() {
             <Field label="Start page">
               <select aria-label="Start page" className={`w-full ${control}`} value={settings.defaultView}
                 onChange={(e) => void update({ defaultView: e.target.value as DeckSettings["defaultView"] })}>
-                <option value="terminal">Terminal</option><option value="agent">Agent</option><option value="reviews">Reviews</option><option value="board">Board</option>
+                <option value="terminal">Terminal</option><option value="agent">Agent</option><option value="reviews">Reviews</option><option value="board">Board</option><option value="activity">Activity</option>
               </select>
             </Field>
           </div>

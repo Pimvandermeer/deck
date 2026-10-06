@@ -4,7 +4,7 @@ import { Icon } from "../board/icons.js";
 import { useTabs } from "../store.js";
 import type { View } from "../App.js";
 
-export const viewTitles: Record<View, string> = { terminal: "Terminal", board: "Board", agent: "Agent", reviews: "Reviews", search: "Search", settings: "Settings" };
+export const viewTitles: Record<View, string> = { terminal: "Terminal", board: "Board", agent: "Agent", reviews: "Reviews", activity: "Activity", search: "Search", settings: "Settings" };
 
 /** Terminal font size while presenting, in px. */
 export const presentationSizes = { min: 16, max: 32, step: 2 };

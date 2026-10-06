@@ -69,6 +69,14 @@ Every pull request waiting on your review, one at a time like a mail client. Eac
 
 The queue is fed either by GitHub's review requests or by a column of your board — every card sitting in it puts its open PRs in front of you, whether or not GitHub asked. Pick which in **Settings → General → Board**.
 
+The rail marks each PR with whose move it is (the reviewers, until a review has seen the head commit; then the author), its open threads, and a dot when something happened since you last looked at it.
+
+### Activity page <kbd>⌘⌥5</kbd>
+
+Every card on your board with its pull requests: status, last commit, last review, whose move it is, open threads and CI. Three numbers on top say where the ball lies: **waiting on you** (a review asked of you, a re-review after new commits, your PR to address, merge or fix, an agent with a question), **you're waiting on** (per person, so you know whom to chase) and **between others**. Click one to see only those; the list is grouped the same way, longest waiting first, each row saying for how long. Every row that waits on you has a **Continue** button that picks it up where it was left: it opens the terminal of the agent already on that PR (for a review, the session that was reviewing it; for work on the PR, the one with its branch checked out), answers the agent if it is the one waiting, resumes the last week's session that worked on the PR if its tab is closed, and otherwise starts a new agent in your checkout with the task written out. Switch **group by** to *what's new* for the news view: rows with news since you last opened them come first, with what happened ("new commits by …", "approved by …", "CI failing", "merged", a status move), and the sidebar badge counts them. It also flags where the tracker and GitHub disagree: a merged PR on a ticket that has not moved, a review column holding only drafts or no PR at all, a ticket marked reviewed while changes are still requested. New commits are told apart by commit id, so a rebase or force-push is caught even when the commit dates are old.
+
+Agents running in your terminals show up next to the work they are on: an agent whose checkout sits on a PR's branch, that opened the PR, that worked on it (a PR link in your prompt, or `gh pr view`/`diff`/`review` on it), or that was started from the ticket gets a chip on the row, in the reviews rail and in the ticket panel; click it to jump to its terminal. The PR screen has a strip for that agent with **Open terminal** and **Message agent**, which types an instruction into its terminal (quick picks for open threads, failing checks, conflicts, a status check or "push it"). **Send to agent** on a review thread puts the comment in that composer for you to edit before it goes. While the agent is waiting on a question or permission prompt, sending is off, since the text would answer that prompt. With no agent on the PR, the same composer starts one in the local checkout.
+
 ### Workspaces
 
 One per client or company. Each workspace has its own tracker connection, GitHub owner, reviews-queue source and folders, and its own terminal tabs and agent sessions (right-click a tab to rename it or move it to another workspace); the board, the review queue, the PR inbox and the sidebar follow whichever is active. Switch from the titlebar, <kbd>⌘⌥→</kbd> / <kbd>⌘⌥←</kbd>, ⌘K (`Workspace: …`) or **Settings → Workspaces**. Everything about Deck itself (theme, hotkey, agents, auto-fix) is shared and lives in **Settings → General**.
@@ -124,7 +132,7 @@ Install and authenticate [`claude`](https://docs.anthropic.com/en/docs/claude-co
 | <kbd>⌘N</kbd> | New window |
 | <kbd>⌘1</kbd>–<kbd>⌘9</kbd> | Switch terminal |
 | <kbd>⌘B</kbd> | Toggle sidebar |
-| <kbd>⌘⌥1</kbd> <kbd>⌘⌥2</kbd> <kbd>⌘⌥3</kbd> <kbd>⌘⌥4</kbd> | Terminal / Board / Agent / Reviews |
+| <kbd>⌘⌥1</kbd> <kbd>⌘⌥2</kbd> <kbd>⌘⌥3</kbd> <kbd>⌘⌥4</kbd> <kbd>⌘⌥5</kbd> | Terminal / Board / Agent / Reviews / Activity |
 | <kbd>⌘D</kbd> / <kbd>⌘⇧D</kbd> | Split right / down |
 | <kbd>⌘F</kbd> | Find in terminal |
 | <kbd>⌘J</kbd> | Toggle multiline input |

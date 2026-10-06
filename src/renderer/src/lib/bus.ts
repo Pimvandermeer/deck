@@ -34,6 +34,19 @@ export function onOpenTerminalTab(cb: (detail: OpenTabDetail) => void): () => vo
   return () => window.removeEventListener(OPEN_TAB, listener);
 }
 
+const FOCUS_TERM = "deck:focus-term";
+
+/** Brings an existing terminal tab to the front, never starting a new one. */
+export function focusTerminal(termId: string): void {
+  window.dispatchEvent(new CustomEvent(FOCUS_TERM, { detail: termId }));
+}
+
+export function onFocusTerminal(cb: (termId: string) => void): () => void {
+  const listener = (e: Event) => cb((e as CustomEvent<string>).detail);
+  window.addEventListener(FOCUS_TERM, listener);
+  return () => window.removeEventListener(FOCUS_TERM, listener);
+}
+
 const OPEN_PR = "deck:open-pr";
 
 export interface OpenPrDetail {

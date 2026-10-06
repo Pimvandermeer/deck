@@ -11,6 +11,7 @@ import { useTabs, type TermTab } from "../store.js";
 import { Icon } from "../board/icons.js";
 import { useSessionSuggestions } from "./useSessionSuggestions.js";
 import { useReviewQueue } from "../lib/reviews.js";
+import { useActivityRows } from "../lib/useActivity.js";
 import { useSettings } from "../lib/useSettings.js";
 import { useAttentionCount } from "../agents/attention.js";
 import { useTips } from "../tips/TipsProvider.js";
@@ -76,7 +77,7 @@ function SessionRow({ tab, session, index, onOpen }: { tab: TermTab; session?: A
   </div>;
 }
 
-const footerViews = ["terminal", "board", "agent", "reviews"] as const;
+const footerViews = ["terminal", "board", "agent", "reviews", "activity"] as const;
 
 export function Sidebar({ view, onView }: { view: View; onView: (view: View) => void }) {
   const { tabs, newTab, focusTab, closeTab } = useTabs();
@@ -109,6 +110,7 @@ export function Sidebar({ view, onView }: { view: View; onView: (view: View) => 
   const sessions = useAgentSessions();
   const attention = useAttentionCount();
   const reviews = useReviewQueue().actionable;
+  const activityNew = useActivityRows().unread;
   const { suggestions, dismissSessions } = useSessionSuggestions(sessions);
   const [showMore, setShowMore] = useState(false);
   const [width, setWidth] = useState(() => Math.min(380, Math.max(220, Number(localStorage.getItem("deck.sidebar.width")) || 252)));
@@ -229,8 +231,8 @@ export function Sidebar({ view, onView }: { view: View; onView: (view: View) => 
     <div className="@container relative flex h-10 shrink-0 items-center gap-1 border-t border-edge px-2">
       {footerIndex >= 0 && <span aria-hidden className="absolute bottom-2 top-2 rounded bg-card2 transition-[left] duration-200 ease-out" style={{ width: `calc((100% - 16px - ${(footerViews.length - 1) * 4}px) / ${footerViews.length})`, left: `calc(8px + (100% - 16px + 4px) / ${footerViews.length} * ${footerIndex})` }} />}
       {footerViews.map((target) => {
-        const badge = target === "agent" ? attention : target === "reviews" ? reviews : 0;
-        return <button key={target} onClick={() => onView(target)} title={target} className={`relative flex h-6 min-w-0 flex-1 items-center justify-center gap-1.5 rounded px-2 text-[11px] transition-colors duration-200 ${view === target ? "text-soft" : "text-dim hover:text-body"}`}><Icon name={target === "terminal" ? "terminal" : target === "board" ? "grid" : target === "reviews" ? "check" : "sparkle"} size={12} className="shrink-0" /><span className="hidden truncate @[300px]:inline">{target}</span>{badge > 0 && <span aria-label={`${badge} ${target === "agent" ? "need attention" : "to review"}`} className="shrink-0 rounded-full bg-orange/20 px-1.5 text-[10px] text-orange">{badge}</span>}</button>;
+        const badge = target === "agent" ? attention : target === "reviews" ? reviews : target === "activity" ? activityNew : 0;
+        return <button key={target} onClick={() => onView(target)} title={target} className={`relative flex h-6 min-w-0 flex-1 items-center justify-center gap-1.5 rounded px-2 text-[11px] transition-colors duration-200 ${view === target ? "text-soft" : "text-dim hover:text-body"}`}><Icon name={target === "terminal" ? "terminal" : target === "board" ? "grid" : target === "reviews" ? "check" : target === "activity" ? "clock" : "sparkle"} size={12} className="shrink-0" /><span className="hidden truncate @[300px]:inline">{target}</span>{badge > 0 && <span aria-label={`${badge} ${target === "agent" ? "need attention" : target === "activity" ? "new" : "to review"}`} className="shrink-0 rounded-full bg-orange/20 px-1.5 text-[10px] text-orange">{badge}</span>}</button>;
       })}
     </div>
   </aside>;

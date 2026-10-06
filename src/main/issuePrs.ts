@@ -93,6 +93,12 @@ export async function prsForIssue(
   return entry.prs;
 }
 
+/** The cached PRs only, never a lookup; undefined until the warmer has
+ *  reached the issue. */
+export function cachedPrsForIssue(key: string): IssuePr[] | undefined {
+  return readCache()[key]?.prs;
+}
+
 /** Walks the board one issue at a time — GitHub's search quota is small and
  *  this is background work — and drops issues that left the board. */
 async function warm(issues: BoardIssue[]): Promise<void> {

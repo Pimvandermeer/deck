@@ -26,6 +26,8 @@ import type { BoardCache, BoardColumnStatuses } from "../main/board/types.js";
 import type { AskEvent, AskResult } from "../main/agentTurn.js";
 import type { ReviewDraft, ReviewPr } from "../main/review.js";
 import type { PrInbox } from "../main/prInbox.js";
+import type { ActivitySeen, BoardActivity, SeenTarget } from "../main/boardActivity.js";
+import type { AgentLink, PastSession } from "../main/agentLinks.js";
 import type { AgentSession } from "../main/sessions.js";
 import type { DeckSettings } from "../shared/settings.js";
 
@@ -236,6 +238,32 @@ const api = {
       const listener = (_e: unknown, inbox: PrInbox | undefined) => cb(inbox);
       ipcRenderer.on("inbox:changed", listener);
       return () => ipcRenderer.removeListener("inbox:changed", listener);
+    },
+  },
+  agents: {
+    /** Agent sessions running in this workspace's terminals, with their branch, repo and the PRs they opened. */
+    links: (): Promise<AgentLink[]> => ipcRenderer.invoke("agents:links"),
+    /** The agent's latest reply as one line, or null before the index has it. */
+    lastWords: (sessionId: string): Promise<string | null> => ipcRenderer.invoke("agents:lastWords", sessionId),
+    /** Per prKey, the latest finished session of the last week that opened or worked on it. */
+    past: (prKeys: string[]): Promise<Record<string, PastSession>> => ipcRenderer.invoke("agents:past", prKeys),
+    /** Types a message into the agent's terminal and submits it. */
+    send: (sessionId: string, text: string): Promise<{ ok: true } | { ok: false; error: string }> => ipcRenderer.invoke("agents:send", sessionId, text),
+  },
+  activity: {
+    get: (): Promise<BoardActivity | undefined> => ipcRenderer.invoke("activity:get"),
+    refresh: (): Promise<BoardActivity | undefined> => ipcRenderer.invoke("activity:refresh"),
+    seen: (): Promise<ActivitySeen | undefined> => ipcRenderer.invoke("activity:seen"),
+    markSeen: (target: SeenTarget): Promise<ActivitySeen> => ipcRenderer.invoke("activity:markSeen", target),
+    onChanged: (cb: (activity: BoardActivity | undefined) => void): (() => void) => {
+      const listener = (_e: unknown, activity: BoardActivity | undefined) => cb(activity);
+      ipcRenderer.on("activity:changed", listener);
+      return () => ipcRenderer.removeListener("activity:changed", listener);
+    },
+    onSeenChanged: (cb: (seen: ActivitySeen | undefined) => void): (() => void) => {
+      const listener = (_e: unknown, seen: ActivitySeen | undefined) => cb(seen);
+      ipcRenderer.on("activity:seenChanged", listener);
+      return () => ipcRenderer.removeListener("activity:seenChanged", listener);
     },
   },
   term: {

@@ -8,6 +8,8 @@ import { Avatar, relativeTime } from "./prUi.js";
 export interface ThreadActions {
   onReply: (threadId: string, body: string) => Promise<boolean>;
   onResolve: (threadId: string, resolved: boolean) => void;
+  /** Hands the thread to the terminal agent on this PR, as a message to review before it goes. */
+  onSendToAgent?: (thread: PrComment[]) => void;
 }
 
 /** Textarea + send button; ⌘↵ sends, Esc cancels. Shared by every composer here. */
@@ -141,6 +143,15 @@ export function ThreadCard({
                   <span className="text-dim">outdated</span>
                 )}
                 <span className="ml-auto flex items-center gap-2">
+                  {i === 0 && actions?.onSendToAgent && !comment.resolved && (
+                    <button
+                      onClick={() => actions.onSendToAgent!(comments)}
+                      title="Put this thread in the agent composer above"
+                      className="flex items-center gap-1 rounded border border-edge2 px-1.5 py-0.5 text-[10px] text-mut hover:border-accent/50 hover:text-accent"
+                    >
+                      <Icon name="sparkle" size={9} /> Send to agent
+                    </button>
+                  )}
                   {i === 0 && comment.threadId && actions && (
                     <button
                       onClick={() => {

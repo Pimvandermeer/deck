@@ -1,9 +1,13 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
+const sessions = vi.hoisted(() => new Map<string, { transcript_path: string }>());
 vi.mock("../src/main/github.js", () => ({ prSummary: async () => null }));
 vi.mock("../src/main/indexer.js", () => ({ transcriptPath: () => undefined }));
-vi.mock("../src/main/sessions.js", () => ({ getSession: () => undefined }));
-const { createdPrs } = await import("../src/main/sessionPrs.js");
+vi.mock("../src/main/sessions.js", () => ({ getSession: (id: string) => sessions.get(id) }));
+const { createdPrs, sessionCreatedPrs, sessionPrActivity } = await import("../src/main/sessionPrs.js");
 
 const line = (row: unknown) => JSON.stringify(row);
 const claudeCall = (id: string, command: string) =>
@@ -60,5 +64,39 @@ describe("createdPrs", () => {
       claudeResult("t2", "already exists: https://github.com/acme/api/pull/5"),
     ]);
     expect(prs.map((pr) => pr.number)).toEqual([5]);
+  });
+});
+
+describe("sessionCreatedPrs", () => {
+  it("reads a growing transcript on from where it stopped, pairing a call and a result that arrive apart", async () => {
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "deck-transcript-")), "session.jsonl");
+    sessions.set("s1", { transcript_path: file });
+    fs.writeFileSync(file, `${claudeCall("t1", "gh pr create --fill")}\n`);
+    expect(await sessionCreatedPrs("s1")).toEqual([]);
+    // Half a line: the agent is still writing it.
+    const result = claudeResult("t1", "https://github.com/acme/api/pull/31");
+    fs.appendFileSync(file, result.slice(0, 20));
+    expect(await sessionCreatedPrs("s1")).toEqual([]);
+    fs.appendFileSync(file, `${result.slice(20)}\n`);
+    expect(await sessionCreatedPrs("s1")).toEqual(["acme/api#31"]);
+    expect(await sessionCreatedPrs("s1")).toEqual(["acme/api#31"]);
+  });
+});
+
+describe("PRs a session worked on", () => {
+  it("takes PR links from prompts and PR numbers from gh commands, not from tool output", async () => {
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "deck-touched-")), "session.jsonl");
+    sessions.set("s2", { transcript_path: file });
+    fs.writeFileSync(file, [
+      line({ type: "user", message: { role: "user", content: "review this pr https://github.com/acme/api/pull/40" } }),
+      claudeCall("t1", "gh pr diff 41"),
+      claudeCall("t2", "gh pr view 42 -R acme/web --comments"),
+      claudeCall("t3", "gh api repos/acme/api/pulls/43/comments"),
+      claudeCall("t4", "gh pr list"),
+      claudeResult("t4", "https://github.com/acme/api/pull/99 https://github.com/acme/api/pull/98"),
+      codexCall("c1", "gh pr checks 44 --repo acme/api"),
+    ].join("\n") + "\n");
+    const { touched } = await sessionPrActivity("s2");
+    expect(touched).toEqual(["acme/api#44", "acme/api#43", "acme/web#42", "?#41", "acme/api#40"]);
   });
 });

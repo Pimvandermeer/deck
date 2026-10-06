@@ -9,6 +9,7 @@ import { SERVER_PORT } from "./port.js";
 import type { ClientMessage, HostMessage, SpawnRequest, TermMeta } from "./ptyHost.js";
 import { clearTermLinks, linkTermToIssue, linkTermToWorkspace, moveTermSessions, registerAgentTerm, endTermSessions, termWorkspace, updateForegroundSession } from "./sessions.js";
 import { getSettings } from "./settings.js";
+import { userShell } from "./userShell.js";
 import { workspaceOf, type WindowRole } from "../shared/settings.js";
 import { LegacyAgentDetector } from "./legacyAgentDetection.js";
 
@@ -68,7 +69,7 @@ export interface TermCreateOptions extends AgentLaunch {
 }
 
 function spawnRequest(opts: TermCreateOptions): SpawnRequest {
-  const shell = process.env.SHELL ?? "/bin/zsh";
+  const shell = userShell();
   const agent = opts.agent ?? (opts.sessionId ? sessionAgent(opts.sessionId) : opts.prompt ? getSettings().defaultAgent : undefined);
   const sessionId = opts.sessionId && agent ? sessionKey(agent, opts.sessionId) : opts.sessionId;
   const command = agent ? agentCommand({ agent, sessionId, prompt: opts.prompt }) : opts.command;

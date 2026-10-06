@@ -10,6 +10,7 @@ import { PrStackStrip } from "./PrStackStrip.js";
 import { PrOverview } from "./PrOverview.js";
 import { Icon } from "./icons.js";
 import { PrAgentPanel } from "./PrAgentPanel.js";
+import { PrAgentStrip, threadInstruction } from "./AgentLinks.js";
 import { useReviewChat } from "./useReviewChat.js";
 import { usePrData } from "../lib/prData.js";
 import { checksSummary, shellQuote, Stat, toneColor } from "./prUi.js";
@@ -64,7 +65,7 @@ export interface PrScreenProps {
 
 export function PrScreen({ pr, issue, onClose, embedded = false, hidden = false, onReviewed }: PrScreenProps) {
   const [tab, setTab] = useState<Tab>("overview");
-  const { diffText, detail, comments, timeline, refresh, setComments } = usePrData(pr.repo, pr.number);
+  const { diffText, detail, comments, timeline, refresh, refreshDiff, setComments } = usePrData(pr.repo, pr.number);
   const [viewed, setViewed] = useState<Set<string>>(new Set());
   const [activePath, setActivePath] = useState<string>();
   const [viewType, setViewType] = useState<ViewType>(
@@ -86,6 +87,17 @@ export function PrScreen({ pr, issue, onClose, embedded = false, hidden = false,
   useEffect(() => {
     void window.deck.search.listRepos().then(setRepos);
   }, []);
+
+  // The reviews page stays mounted, so without this the open PR keeps what it
+  // loaded first until deck restarts.
+  const loadedOnce = useRef(false);
+  useEffect(() => {
+    if (!loadedOnce.current) { loadedOnce.current = true; return; }
+    if (hidden) return;
+    refresh();
+    refreshDiff();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hidden, pr.updatedAt]);
 
   useEffect(() => {
     if (detail) setViewed(new Set(detail.files.filter((f) => f.viewed).map((f) => f.path)));
@@ -196,7 +208,9 @@ export function PrScreen({ pr, issue, onClose, embedded = false, hidden = false,
     return result.ok;
   };
 
+  const [agentDraft, setAgentDraft] = useState<{ text: string; at: number }>();
   const threadActions: ThreadActions = {
+    onSendToAgent: (thread) => setAgentDraft({ text: threadInstruction(pr, thread), at: Date.now() }),
     onReply: (threadId, body) => window.deck.gh.replyToThread(threadId, body).then(report),
     onResolve: (threadId, resolved) => {
       // Optimistic: flip the thread locally, GitHub confirms on refresh.
@@ -517,6 +531,8 @@ export function PrScreen({ pr, issue, onClose, embedded = false, hidden = false,
           </div>
         )}
       </div>
+
+      <PrAgentStrip pr={pr} detail={detail} ticketKey={issue?.key} openThreads={openThreads} cwd={checkoutCwd} draft={agentDraft} />
 
       <div className="relative flex min-h-0 flex-1 flex-col">
         {tab === "overview" ? (

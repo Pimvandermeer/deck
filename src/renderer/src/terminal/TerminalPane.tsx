@@ -2,7 +2,7 @@ import { useExtensions } from "../extensions/ExtensionProvider.js";
 import { useDisplayMode } from "../chrome/DisplayMode.js";
 import { useTerminalAppearance } from "../lib/useTerminalAppearance.js";
 import { useSettings } from "../lib/useSettings.js";
-import { chordOf, resolveKeybinds } from "../../../shared/keybinds.js";
+import { chordOf, resolveKeybinds, tabSwitchIndex } from "../../../shared/keybinds.js";
 import { onTerminalAction } from "./actions.js";
 import { ContextBar } from "./ContextBar.js";
 import { trackTypedInput } from "../../../shared/tips.js";
@@ -78,7 +78,21 @@ export function TerminalPane({ termId, cwd, busy, active, focused = active, onTi
         window.deck.term.input(termId, event.key);
         return false;
       }
-      return !((event.metaKey && !event.shiftKey && !event.altKey && /^Digit[1-9]$/.test(event.code)) || boundChords.current.has(chordOf(event) ?? ""));
+      // Ctrl+Shift+C/V copy and paste, as in GNOME Terminal; plain Ctrl+C stays an interrupt.
+      if (event.type === "keydown" && event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey) {
+        if (event.code === "KeyC") {
+          event.preventDefault();
+          if (term.hasSelection()) void navigator.clipboard.writeText(term.getSelection());
+          return false;
+        }
+        if (event.code === "KeyV") {
+          // Without preventDefault the browser's own paste fires too and the text lands twice.
+          event.preventDefault();
+          void navigator.clipboard.readText().then((text) => text && term.paste(text));
+          return false;
+        }
+      }
+      return !(tabSwitchIndex(event) !== undefined || boundChords.current.has(chordOf(event) ?? ""));
     });
 
     try {

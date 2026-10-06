@@ -78,13 +78,13 @@ export function KeybindsSettings() {
           {conflict?.id === info.id && <span className="ml-2 text-orange">already used by “{conflict.with}”</span>}
         </td>
         <td className="py-2 text-right whitespace-nowrap">
-          {chord !== info.default && !isRecording && <button onClick={() => reset(info.id)} className="mr-2 text-[11px] text-mut hover:text-soft">reset</button>}
+          {chord !== defaultKeybinds[info.id] && !isRecording && <button onClick={() => reset(info.id)} className="mr-2 text-[11px] text-mut hover:text-soft">reset</button>}
           <button aria-label={`Change shortcut for ${info.label}`} title="Click, then press the new shortcut. Esc cancels."
             {...(isRecording ? { [RECORDING_ATTRIBUTE]: "" } : {})}
             onClick={() => { setConflict(undefined); setRecording(info.id); }}
             onBlur={() => { if (isRecording) { setRecording(undefined); setConflict(undefined); } }}
             onKeyDown={(event) => { if (isRecording) record(info.id, event); }}
-            className={`${kbd} hover:border-edge3 ${isRecording ? "border-accent text-accent" : ""} ${chord !== info.default ? "text-accent" : ""}`}>
+            className={`${kbd} hover:border-edge3 ${isRecording ? "border-accent text-accent" : ""} ${chord !== defaultKeybinds[info.id] ? "text-accent" : ""}`}>
             {isRecording ? "press keys…" : formatChord(chord)}
           </button>
         </td>

@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import { userShell } from "./userShell.js";
 
 const exec = promisify(execFile);
 
@@ -19,7 +20,7 @@ export interface ProjectRuntime {
 
 /** Runs a command the way the user's own prompt would, so version managers apply. */
 async function shell(command: string, cwd: string): Promise<string> {
-  const { stdout } = await exec(process.env.SHELL ?? "/bin/zsh", ["-lc", command], { cwd, timeout: 5000 });
+  const { stdout } = await exec(userShell(), ["-lc", command], { cwd, timeout: 5000 });
   return stdout;
 }
 
