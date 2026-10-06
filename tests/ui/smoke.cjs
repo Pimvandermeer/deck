@@ -183,7 +183,7 @@ app.whenReady().then(async () => {
   await click('Approve');
   await wait(1200);
   if (JSON.stringify(await run('window.deck.reviewedEvents()')) !== '["APPROVE"]') throw Error('Approve did not submit a review');
-  if (!(await header()).includes('2 of 2') || !(await header()).includes('APP-42 Fix login expiry')) throw Error('Approving did not move to the next review');
+  if (!(await header()).includes('1 of 2') || !(await header()).includes('Migrate sessions table') || !(await header()).includes('✓ approved')) throw Error('Approving should stay on the pull request it approved');
   await run(`window.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter',metaKey:true,shiftKey:true,bubbles:true,cancelable:true}))`);
   await wait(200);
   if (!(await run(`document.querySelector('[data-display-mode="zen"]') && document.querySelector('aside').offsetWidth === 0 && document.body.innerText.includes('APP-42 Fix login expiry') && document.body.innerText.includes('Reviews')`))) throw Error('Zen did not keep the reviews page while hiding chrome');
@@ -200,7 +200,7 @@ app.whenReady().then(async () => {
   await click('Exit presentation view');
   if ((await run('window.deck.fullscreenCalls().at(-1)')) !== false) throw Error('Leaving the mode did not restore the window');
   if (errors.length) throw Error(errors.join('\n'));
-  console.log('UI smoke passed: focus, splits, files, Zen, Presentation, font sizing, session navigation, Escape, sidebar, Codex launch, themes, custom preview/save, plugin worker panel, plugin themes, disable/enable agent command, Codex history preview and resume, recent suggestions, expiry, dismissal, search and close all, agent page greeting and rail, answer, tool trace and reset, agent dock sharing the conversation, review queue navigation and approve-then-next, Zen and Presentation on the reviews page.');
+  console.log('UI smoke passed: focus, splits, files, Zen, Presentation, font sizing, session navigation, Escape, sidebar, Codex launch, themes, custom preview/save, plugin worker panel, plugin themes, disable/enable agent command, Codex history preview and resume, recent suggestions, expiry, dismissal, search and close all, agent page greeting and rail, answer, tool trace and reset, agent dock sharing the conversation, review queue navigation and approve staying put, Zen and Presentation on the reviews page.');
   window.destroy();
   app.quit();
 }).catch((error) => { console.error(error); app.exit(1); });
